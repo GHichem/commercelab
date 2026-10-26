@@ -1,49 +1,64 @@
 import { useEffect, useState } from 'react'
-import { getHealth } from './api/health'
+import { getProducts, type Product } from './api/products'
+import { ProductCard } from './components/ProductCard'
 
 function App() {
-  const [backendStatus, setBackendStatus] = useState('Checking...')
+  const [products, setProducts] = useState<Product[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function checkBackend() {
+    async function loadProducts() {
       try {
-        const data = await getHealth()
-
-        setBackendStatus(
-          `${data.service}: ${data.status}`
-        )
+        const data = await getProducts()
+        setProducts(data)
       } catch {
-        setBackendStatus('Backend unavailable')
+        setError('Could not load products.')
+      } finally {
+        setIsLoading(false)
       }
     }
 
-    checkBackend()
+    loadProducts()
   }, [])
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-white">
-      <section className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-8">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-emerald-400">
-          Built by Hichem
+    <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
+      <section className="mx-auto max-w-6xl">
+        <p className="text-sm font-semibold uppercase tracking-widest text-emerald-400">
+          CommerceLab
         </p>
 
-        <h1 className="text-4xl font-bold">
-          CommerceLab
+        <h1 className="mt-2 text-4xl font-bold">
+          Products
         </h1>
 
-        <p className="mt-4 text-slate-300">
-          A reliable online shop, built one feature at a time.
+        <p className="mt-3 text-slate-400">
+          Products loaded from the CommerceLab API.
         </p>
 
-        <div className="mt-6 rounded-lg bg-slate-800 p-4">
-          <p className="text-sm text-slate-400">
-            Backend status
+        {isLoading && (
+          <p className="mt-8 text-slate-400">
+            Loading products...
           </p>
+        )}
 
-          <p className="mt-1 font-medium">
-            {backendStatus}
+        {error && (
+          <p className="mt-8 text-red-400">
+            {error}
           </p>
-        </div>
+        )}
+
+        {!isLoading && !error && (
+          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {products.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+              />
+            ))}
+          </div>
+        )}
       </section>
     </main>
   )
