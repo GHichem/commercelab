@@ -1,0 +1,14 @@
+// use prisma-8
+
+model Product {
+  id            Int      @id @default(autoincrement())
+  name          String
+  slug          String   @unique
+  description   String?
+  priceCents    Int
+  stockQuantity Int      @default(0)
+  imageUrl      String?
+  isActive      Boolean  @default(true)
+  createdAt     TimestamptzString @default(now())
+  updatedAt     temporal.updatedAtString()
+}
