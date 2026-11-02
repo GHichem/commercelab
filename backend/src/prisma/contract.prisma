@@ -1,14 +1,33 @@
 // use prisma-8
 
 model Product {
-  id            Int      @id @default(autoincrement())
+  id            Int            @id @default(autoincrement())
   name          String
-  slug          String   @unique
+  slug          String         @unique
   description   String?
   priceCents    Int
-  stockQuantity Int      @default(0)
+  stockQuantity Int            @default(0)
+
+  // Temporary legacy image.
+  // We keep this while converting the storefront to ProductImage.
   imageUrl      String?
-  isActive      Boolean  @default(true)
+
+  isActive      Boolean        @default(true)
+  images        ProductImage[]
+
   createdAt     TimestamptzString @default(now())
   updatedAt     temporal.updatedAtString()
+}
+
+model ProductImage {
+  id          Int      @id @default(autoincrement())
+
+  productId   Int
+  product     Product  @relation(fields: [productId], references: [id])
+
+  storagePath String
+  altText     String?
+  position    Int      @default(0)
+
+  createdAt   TimestamptzString @default(now())
 }
