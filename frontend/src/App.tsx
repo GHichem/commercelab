@@ -22,46 +22,48 @@ function App() {
     loadProducts()
   }, [])
 
-  return (
-    <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
-      <section className="mx-auto max-w-6xl">
-        <p className="text-sm font-semibold uppercase tracking-widest text-emerald-400">
+ return (
+  <main className="min-h-screen bg-[#f7f4ee] px-6 py-10 text-[#1c1c18]">
+    <section className="mx-auto max-w-7xl">
+      <header className="border-b border-[#cfc8bc] pb-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#8c3b24]">
           CommerceLab
         </p>
 
-        <h1 className="mt-2 text-4xl font-bold">
-          Products
+        <h1 className="font-editorial mt-4 max-w-3xl text-5xl leading-none sm:text-6xl">
+          Objects for modern work and everyday life.
         </h1>
 
-        <p className="mt-3 text-slate-400">
-          Products loaded from the CommerceLab API.
+        <p className="mt-5 max-w-2xl text-base leading-7 text-[#666159]">
+          A curated collection of useful technology and desk essentials.
         </p>
+      </header>
 
-        {isLoading && (
-          <p className="mt-8 text-slate-400">
-            Loading products...
-          </p>
-        )}
+      {isLoading && (
+        <p className="mt-10 text-[#69655e]">
+          Loading products...
+        </p>
+      )}
 
-        {error && (
-          <p className="mt-8 text-red-400">
-            {error}
-          </p>
-        )}
+      {error && (
+        <p className="mt-10 text-[#9b3e2f]">
+          {error}
+        </p>
+      )}
 
-        {!isLoading && !error && (
-          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {products.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-    </main>
-  )
+      {!isLoading && !error && (
+        <div className="mt-12 grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
+          {products.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  </main>
+)
 }
 
 export default App

@@ -1,1 +1,21 @@
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap');
 @import "tailwindcss";
+
+:root {
+  font-family: "Hanken Grotesk", sans-serif;
+  color: #1c1c18;
+  background: #f7f4ee;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #f7f4ee;
+}
+
+.font-editorial {
+  font-family: "Newsreader", serif;
+}
