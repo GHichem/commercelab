@@ -9,8 +9,8 @@ export function ProductCard({ product }: ProductCardProps) {
   const isOutOfStock = product.stockQuantity === 0
 
   return (
-    <article className="group border-t border-[#d8d2c8] pt-4">
-      <div className="aspect-[4/3] overflow-hidden bg-[#ebe6dc]">
+    <article className="group border border-[#d8d2c8] bg-[#fbf9f5]">
+      <div className="aspect-[4/3] overflow-hidden border-b border-[#d8d2c8] bg-[#ebe6dc]">
         {product.imageUrl ? (
           <img
             src={product.imageUrl}
@@ -24,7 +24,7 @@ export function ProductCard({ product }: ProductCardProps) {
         )}
       </div>
 
-      <div className="pt-4">
+      <div className="p-4">
         <div className="flex items-start justify-between gap-4">
           <h2 className="font-editorial text-2xl leading-tight">
             {product.name}
@@ -35,7 +35,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </span>
         </div>
 
-        <p className="mt-2 max-w-md text-sm leading-6 text-[#69655e]">
+        <p className="mt-2 text-sm leading-6 text-[#69655e]">
           {product.description ?? 'No description available'}
         </p>
 
