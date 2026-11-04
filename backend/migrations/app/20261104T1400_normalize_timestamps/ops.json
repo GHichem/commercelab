@@ -1,0 +1,94 @@
+[
+  {
+    "id": "dropDefault.Product.createdAt",
+    "label": "Drop default on \"Product\".\"createdAt\"",
+    "operationClass": "widening",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "createdAt",
+        "table": "Product"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"createdAt\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "Product",
+          "createdAt"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "column \"createdAt\" on \"Product\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop default on \"createdAt\"",
+        "sql": "ALTER TABLE \"public\".\"Product\" ALTER COLUMN \"createdAt\" DROP DEFAULT"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"createdAt\" has no default",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3 AND \"column_default\" IS NULL)) AS \"result\"",
+        "params": [
+          "public",
+          "Product",
+          "createdAt"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dropDefault.ProductImage.createdAt",
+    "label": "Drop default on \"ProductImage\".\"createdAt\"",
+    "operationClass": "widening",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "createdAt",
+        "table": "ProductImage"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"createdAt\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "ProductImage",
+          "createdAt"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "column \"createdAt\" on \"ProductImage\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop default on \"createdAt\"",
+        "sql": "ALTER TABLE \"public\".\"ProductImage\" ALTER COLUMN \"createdAt\" DROP DEFAULT"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"createdAt\" has no default",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3 AND \"column_default\" IS NULL)) AS \"result\"",
+        "params": [
+          "public",
+          "ProductImage",
+          "createdAt"
+        ]
+      }
+    ]
+  }
+]

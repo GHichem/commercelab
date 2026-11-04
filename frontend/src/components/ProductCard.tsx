@@ -4,18 +4,32 @@ type ProductCardProps = {
   product: Product
 }
 
-export function ProductCard({ product }: ProductCardProps) {
-  const price = (product.priceCents / 100).toFixed(2)
-  const isOutOfStock = product.stockQuantity === 0
+export function ProductCard({
+  product,
+}: ProductCardProps) {
+  const price = (
+    product.priceCents / 100
+  ).toFixed(2)
+
+  const isOutOfStock =
+    product.stockQuantity === 0
+
+  const mainImage =
+    product.images[0]?.url ??
+    product.imageUrl
 
   return (
     <article className="group border border-[#d8d2c8] bg-[#fbf9f5]">
-      <div className="aspect-[4/3] overflow-hidden border-b border-[#d8d2c8] bg-[#ebe6dc]">
-        {product.imageUrl ? (
+      <div className="aspect-square overflow-hidden border-b border-[#d8d2c8] bg-[#ebe6dc]">
+        {mainImage ? (
           <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"
+            src={mainImage}
+            alt={
+              product.images[0]
+                ?.altText ??
+              product.name
+            }
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-[#8d887f]">
@@ -36,7 +50,8 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
 
         <p className="mt-2 text-sm leading-6 text-[#69655e]">
-          {product.description ?? 'No description available'}
+          {product.description ??
+            'No description available'}
         </p>
 
         <div className="mt-4 flex items-center justify-between border-t border-[#e3ded5] pt-3">
@@ -53,7 +68,9 @@ export function ProductCard({ product }: ProductCardProps) {
           </span>
 
           <button
-            disabled={isOutOfStock}
+            disabled={
+              isOutOfStock
+            }
             className="border-b border-[#1c1c18] pb-0.5 text-sm font-medium transition hover:text-[#8c3b24] disabled:cursor-not-allowed disabled:border-[#aaa59d] disabled:text-[#aaa59d]"
           >
             View product

@@ -33,6 +33,13 @@
                   "kind": "scalar"
                 }
               },
+              "displayOrder": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "id": {
                 "nullable": false,
                 "type": {
@@ -114,6 +121,9 @@
                 },
                 "description": {
                   "column": "description"
+                },
+                "displayOrder": {
+                  "column": "displayOrder"
                 },
                 "id": {
                   "column": "id"
@@ -246,16 +256,21 @@
                 "createdAt": {
                   "codecId": "pg/timestamptz-string@1",
                   "dataType": "pg/timestamptz",
-                  "default": {
-                    "expression": "now()",
-                    "kind": "function"
-                  },
                   "nullable": false
                 },
                 "description": {
                   "codecId": "pg/text@1",
                   "dataType": "pg/text",
                   "nullable": true
+                },
+                "displayOrder": {
+                  "codecId": "pg/int4@1",
+                  "dataType": "pg/int4",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nullable": false
                 },
                 "id": {
                   "codecId": "pg/int4@1",
@@ -335,10 +350,6 @@
                 "createdAt": {
                   "codecId": "pg/timestamptz-string@1",
                   "dataType": "pg/timestamptz",
-                  "default": {
-                    "expression": "now()",
-                    "kind": "function"
-                  },
                   "nullable": false
                 },
                 "id": {
@@ -414,24 +425,46 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "99c792da6c30868965c4c621bac3d23a270dd03792a63be3c07b3cb0d8d7d06e"
+    "storageHash": "3bef3207674db2cd96c8faeea500983f62cc9653f677edddee7e6924a27b63f1"
   },
   "execution": {
-    "executionHash": "cd4653be4882c516ad761e7d1e8b4146d5e617198411195a716261ab45790acc",
+    "executionHash": "c259f46940387f89dc881703144978ec9754c3dfff5b3a7d5d03d0b2ee4d79a6",
     "mutations": {
       "defaults": [
         {
           "onCreate": {
-            "id": "timestampNow",
+            "id": "timestamptzStringNow",
+            "kind": "generator"
+          },
+          "ref": {
+            "entry": "Product",
+            "field": "createdAt",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "timestamptzStringNow",
             "kind": "generator"
           },
           "onUpdate": {
-            "id": "timestampNow",
+            "id": "timestamptzStringNow",
             "kind": "generator"
           },
           "ref": {
             "entry": "Product",
             "field": "updatedAt",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "timestamptzStringNow",
+            "kind": "generator"
+          },
+          "ref": {
+            "entry": "ProductImage",
+            "field": "createdAt",
             "namespace": "public"
           }
         }

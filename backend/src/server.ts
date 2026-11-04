@@ -1,23 +1,98 @@
-import express from 'express'
+import 'dotenv/config'
+
 import cors from 'cors'
-import { productsRouter } from './routes/products.js'
-import { adminImagesRouter } from './routes/admin-images.js'
+import express from 'express'
+
+import {
+  requireAdmin,
+} from './auth/admin-auth.js'
+
+import {
+  adminAuthRouter,
+} from './routes/admin-auth.js'
+
+import {
+  adminImagesRouter,
+} from './routes/admin-images.js'
+
+import {
+  adminProductsRouter,
+} from './routes/admin-products.js'
+
+import {
+  productsRouter,
+} from './routes/products.js'
 
 const app = express()
-const PORT = 3000
 
-app.use(cors())
-app.use(express.json())
-app.use('/products', productsRouter)
-app.use('/admin', adminImagesRouter)
+const PORT =
+  Number(
+    process.env.PORT ??
+      3000,
+  )
 
-app.get('/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    service: 'commercelab-api',
-  })
-})
+const FRONTEND_URL =
+  process.env.FRONTEND_URL ??
+  'http://localhost:5173'
 
-app.listen(PORT, () => {
-  console.log(`CommerceLab API running on http://localhost:${PORT}`)
-})
+app.use(
+  cors({
+    origin: FRONTEND_URL,
+    credentials: true,
+  }),
+)
+
+app.use(
+  express.json(),
+)
+
+app.get(
+  '/health',
+  (_req, res) => {
+    return res.json({
+      status: 'ok',
+      service:
+        'commercelab-api',
+    })
+  },
+)
+
+// Public shop API
+app.use(
+  '/products',
+  productsRouter,
+)
+
+// Login/logout/session check.
+// This MUST come before
+// requireAdmin.
+app.use(
+  '/admin/auth',
+  adminAuthRouter,
+)
+
+// Everything after this point
+// under /admin requires login.
+app.use(
+  '/admin',
+  requireAdmin,
+)
+
+app.use(
+  '/admin',
+  adminImagesRouter,
+)
+
+app.use(
+  '/admin',
+  adminProductsRouter,
+)
+
+app.listen(
+  PORT,
+  () => {
+    console.log(
+      `CommerceLab API running on http://localhost:${PORT}`,
+    )
+  },
+)

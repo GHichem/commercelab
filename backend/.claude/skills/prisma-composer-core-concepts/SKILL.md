@@ -2,7 +2,7 @@
 name: prisma-composer-core-concepts
 metadata:
   library: "@prisma/composer"
-  library_version: "0.32.0"
+  library_version: "0.36.0"
   version: 2026.9.1
 description: >-
   Use when deploying or managing an app that uses Prisma Composer
@@ -16,9 +16,10 @@ description: >-
 # Prisma Composer core concepts
 
 A **Prisma App** is a tree of typed declarations composed in TypeScript and
-handed to the `prisma` CLI, which has two Composer commands: `prisma deploy`
-and `prisma dev`. Teardown and logs are not commands; they are the `destroy`
-and `log` operations of `@prisma/composer/control`, called from a script.
+handed to the `prisma` CLI, whose two main Composer commands are `prisma deploy`
+and `prisma dev`. Removing a whole app is `prisma project delete`. Removing
+one environment and reading logs are not commands; they are the `destroy` and `log`
+operations of `@prisma/composer/control`, called from a script.
 This file covers structures, hierarchies, relationships, and workflows: the
 concepts you cannot observe from the code or the CLI's help output. It is not
 a CLI reference; discover each command's flags with `prisma <command> --help`
@@ -30,7 +31,7 @@ prisma/composer repo.
 Two principles govern everything and are binding
 (`docs/design/01-principles/`):
 
-1. **Your code never reads its environment.** Dependencies, configuration,
+1. **Your code never reads environment variables.** Dependencies, configuration,
    credentials, and the port all arrive through the service node, typed.
    `process.env` is never the answer.
 2. **Composer never bundles or transforms your code.** You build with your own
@@ -44,12 +45,12 @@ app, executing nothing when imported. Three node kinds exist:
 
 | Kind | Declared with | Purpose |
 | --- | --- | --- |
-| Service | `compute()` | A running unit of your code; atomic, Composer sees only its ports |
+| Service | `compute()` | A running unit of your code; atomic, Composer sees only its boundary |
 | Resource | `rawPostgres()`, `bucket()` | A stateful managed dependency |
-| Module | `module()` | A grouping boundary; runs no code of its own, exposes typed ports |
+| Module | `module()` | A grouping boundary; runs no code of its own, depends on and exposes typed interfaces; its builder receives `deps`, `secrets`, `params`, `environment` and `provision` |
 
-Nodes connect through **ports**: `deps` declares what a node requires,
-`expose` declares what it offers. Wiring happens in a Module's builder via
+Nodes connect through typed **interfaces**: `deps` declares what a node depends on,
+`expose` declares what it exposes. Wiring happens in a Module's builder via
 `provision()`, and the root Module, handed to the CLI, is the App:
 
 ```ts
@@ -62,7 +63,7 @@ export default module('store', ({ provision }) => {
 });
 ```
 
-Because ports are typed, **the compiler verifies every wire**. A dependency
+Because interfaces are typed, **the compiler verifies every wire**. A dependency
 wired to the wrong producer, a missing RPC handler, a literal input value of
 the wrong shape: all of it fails `tsc`, not the deploy. Env-bound input is
 the exception: those values exist only at deploy, so secret-binding
@@ -128,7 +129,7 @@ client back from `load()`.
 | The value is… | Declare | Provide | Read |
 | --- | --- | --- | --- |
 | produced by another node | `deps: { db: rawPostgres() }` | wire at `provision()` | `load()` |
-| anything else (config or credential) | one field of the `input` schema | bind at `provision()`: literal, `envParam()`, or `envSecret()` | `input()` |
+| anything else (config or credential) | one field of the `input` schema | bind at `provision()`: literal, `envParam()`, `envSecret()`, or a `resolve()` value | `input()` |
 
 The service declares its whole incoming configuration, plain values and
 credentials together, as **one [Standard Schema](https://standardschema.dev)**
@@ -144,7 +145,7 @@ Rules that bite:
    expects `SecretString` fails the deploy; `envSecret` bound to a plain
    string field fails the same way.
 2. **`envParam` values arrive as raw strings**; bind them to string fields.
-   The stage's platform variable is the store; the deploying shell only seeds
+   The environment's platform variable is the store; the deploying shell only seeds
    a missing name (and the deploy fails early, naming the variable, when both
    lack it). Changing the platform value needs a redeploy.
 3. **Absence is the schema's call.** An env-bound field whose variable is
@@ -161,6 +162,17 @@ Rules that bite:
    source.
 6. `input.apiKey.expose()` is the only way to a secret's value; the box
    redacts everywhere else (logs, JSON, errors).
+
+### Values that differ per environment
+
+The graph is the same in every environment; only configuration may differ.
+
+- The module body receives `environment`; `environment.name` is a value standing for the name `--environment` gave (`production` for `prisma deploy`, `dev` for `prisma dev` by default).
+- `resolve([deps], ([values]) => …)` from `@prisma/composer` returns a computed value; `fn` receives the dependencies' real values as one tuple.
+- A value is accepted as a leaf of a service's `input` binding, at any depth, or as a service param. Never as a provision id, a `deps` entry, or a module's `secrets` or `params` binding.
+- A value is opaque in the body: you cannot read, compare or branch on it. List it as a `resolve()` dependency instead.
+- Calling `provision()` inside `fn` fails the load: `fn` computes configuration, never graph structure.
+- `fn` is pure and synchronous and returns plain data (no `undefined`, Promise, value, `envParam()` or `envSecret()`); a deploy and `destroy` both run it, in two processes. To retire an environment, keep its case in every `fn` until `destroy` for it has finished.
 
 ## Contracts and RPC
 
@@ -243,12 +255,19 @@ bite:
 4. **Next.js**: `next build` with `output: 'standalone'` is the whole build;
    `nextjs({ module, appDir })` names the app root. Any page or action that
    calls `load()` needs `export const dynamic = 'force-dynamic'`, because
-   the runtime environment doesn't exist at build time and Next ignores
-   runtime env for prerendered routes.
-5. **Always build before `deploy` or `dev`.** Neither builds for you.
+   the runtime environment variables don't exist at build time and Next ignores
+   runtime env for prerendered routes. `prisma dev` needs no build for it: it
+   runs `next dev` instead (see Local development).
+5. **Always build before `deploy`, and before `dev` for a service without a
+   dev server.** Neither builds for you. `node({ ..., dev: ['bun', '--watch',
+   'server.ts'] })` gives a node service a dev server: `prisma dev` runs that
+   command (in the authoring module's directory, nothing appended; it must
+   listen on `PORT`) instead of the built `entry`.
 
 Deploy configuration is the `composer` section of `prisma.config.ts`, and
-nothing else. It registers extensions (`prismaCloud()`, `nodeBuild()`,
+nothing else. It names the entry module, the file whose default export is the
+app root (`entry`, relative to the config file; `--entry <path>` overrides it
+for one run), and registers extensions (`prismaCloud()`, `nodeBuild()`,
 `nextjsBuild()` when the app has a Next.js service) and the deploy-state
 backend (`prismaState()`):
 
@@ -260,13 +279,17 @@ import { prismaCloud, prismaState } from '@prisma/composer-prisma-cloud/control'
 import { definePrismaConfig } from 'prisma/config';
 
 export default definePrismaConfig({
-  composer: composer({ extensions: [prismaCloud(), nodeBuild()], state: prismaState() }),
+  composer: composer({
+    entry: './module.ts',
+    extensions: [prismaCloud(), nodeBuild()],
+    state: prismaState(),
+  }),
 });
 ```
 
 The commands find `prisma.config.ts` from the directory they run in, walking up
 to the repository root; the nearest file that declares `composer` wins, and its
-section is used whole, never merged key by key. Only `extensions` and `state`
+section is used whole, never merged key by key. Only `entry`, `extensions` and `state`
 are allowed; any other key is an error. App code never imports the file.
 
 A separate `prisma-composer.config.ts` is no longer read, and the old setup is
@@ -287,16 +310,29 @@ Two kinds of Postgres dependency:
 
 1. **`rawPostgres()`**: the binding is `{ url }` and the app owns its client.
 2. **`postgres(...)`**: a Prisma-ORM-typed database. The binding is
-   `{ url, client }` (ADR-0040): the raw connection URL plus the typed
-   client Composer constructs from your data contract, lazily on first
-   access, so queries go through `binding.client` and are compile-time
-   checked. Both `postgres` and `dataContract` import from
+   `{ url, connection, client, clientWith }` (ADR-0040, ADR-0055): the raw
+   connection URL, the connection pool, the typed client Composer constructs
+   from your data contract lazily on first access, and `clientWith(options)`,
+   which builds a typed client with Prisma ORM runtime options. Queries go
+   through `binding.client` and are compile-time checked. Both `postgres` and `dataContract` import from
    `@prisma/composer-prisma-cloud/orm`, not the package root. One
    `dataContract`-wrapped value (emitted from `contract.prisma` by
    `prisma contract emit`) is referenced by both the dependency end
    (`deps: { db: postgres(catalogData) }`) and the resource end, which also
    names the `prisma.config.ts` path so the deploy's migration step can
    reload the emitted `contract.json` and find `migrations/`.
+   Client options never go on the dependency declaration. A contract that
+   uses an extension type (for example `pgvector.Vector(length: 1024)`)
+   needs the pack's runtime extension when the client is built:
+   `export const orm = db.clientWith({ extensions: [pgvectorRuntime] })`,
+   where `pgvectorRuntime` is the default export of
+   `@prisma/orm-extension-pgvector/runtime`; other runtime options, such as
+   `middleware`, go in the same object. Install the pack at exactly the
+   `@prisma/orm-postgres` version: the pack pins the ORM's shared packages
+   to its own version, so a mismatch installs two copies that silently
+   reject each other's values. Composer never looks extensions up itself;
+   with `binding.client` instead, the first access throws
+   "Contract requires extension pack(s) 'pgvector'".
 
 **Deploys are replay-only**: they apply the migrations committed under
 `migrations/` and never create schema themselves. Every schema change,
@@ -333,26 +369,31 @@ removing a node removes its deployed resource. `prisma deploy` needs a signed-in
 identity: `prisma auth login` stores a session on a developer machine, and
 `PRISMA_SERVICE_TOKEN` overrides it in CI. The `/control` operations, and so
 a destroy script, never use that session: `deploy` and `destroy` read
-`PRISMA_SERVICE_TOKEN` and `PRISMA_WORKSPACE_ID` from the environment (both
+`PRISMA_SERVICE_TOKEN` and `PRISMA_WORKSPACE_ID` from environment variables (both
 in the workspace's Console settings); `dev` and `log` read neither. The
 `prisma` bin starts under Node; use `pnpm prisma …` or `npx prisma …` by
 default. Composer starts Alchemy with Node, but Alchemy's launcher moves to
 Bun under `bunx` or `bun run`: `bunx prisma` gives Node then Bun,
 `bunx --bun prisma` Bun then Bun. When the modules `module.ts` imports use
-Bun APIs, `bun node_modules/prisma/dist/prisma.js deploy module.ts` from a
+Bun APIs, `bun node_modules/prisma/dist/prisma.js deploy` from a
 shell runs `prisma` under Bun with Alchemy on Node.
 
-Services, managed Postgres databases and buckets record their node address as
+A node's **address** is the app name followed by the provision ids down to it
+(`shop.auth.api`); the root's address is the app name, or `--name` when given.
+Every surface uses this full form: `serviceOrigin('shop.api')`,
+`prisma dev url shop.api`, the `log` operation's `address`, errors and reports.
+Services, managed Postgres databases and buckets record their address as
 `logicalId` on their Branch. Console uses that address to match topology nodes
 to resources and compare them with main. Existing environments receive the
-identity on their next deploy; a conflicting identity fails deploy. Local dev
+identity on their next deploy. A deploy interrupted after creating a resource
+resumes on the next deploy, which finds the resource by its address. Local dev
 creates no platform rows. Changing a node's address (its name without an
 explicit `id`, its `id`, or its module) makes a new entity: the next deploy
 deletes the old rows, and a database's or bucket's data with them.
 
 **Progress.** `prisma deploy` prints each step as it starts and finishes, with
 its duration (`✔ assemble web (3m 42s)`), and ends with the real total
-(`Deployed <app> to <stage> in 5m 25s.`). Steps: load config and app, one
+(`Deployed <app> to <environment> in 5m 25s.`). Steps: load config and app, one
 assemble per service, connect to project and branch, check environment
 variables, plan and apply (one step: alchemy does both in one process), record
 result. A slow assemble is usually a Node service with
@@ -362,28 +403,64 @@ those extra fields vary, so don't parse them as a stable format. The
 `deploy` operation's `onEvent` receives the same steps, and its result's
 `durationMs` is the total.
 
-**Stages.** A stage is an environment name chosen on the command line at
-deploy time, never written in the topology. The identical graph deploys
-everywhere. On the Prisma Cloud target, a Prisma App is one Project and a
-stage is a Branch of it, with its own running services, its own empty
-database, its own configuration. A stage name must be a valid git ref name;
-an invalid name is a hard error.
+**Environments.** An environment is a named place the app runs, chosen with
+`--environment` at deploy time, never written in the topology. The identical
+graph deploys everywhere. `prisma deploy` without the flag deploys
+`production`; `prisma dev` runs as `dev` and takes no flag. On the Prisma Cloud
+target, a Prisma App is one Project and an environment is a Branch of it, with
+its own running services, its own empty database, its own configuration:
+`production` is the Project's default Branch, any other name is the Branch
+with that `gitName`, created if absent. The default Branch's own name (such as
+`main`) is refused, since it would be production under a second name. A name
+must be a valid git ref name, or the deploy fails with
+`DEPLOY.ENVIRONMENT_INVALID`.
 
-**Destroy** is the `destroy` operation, and its `target` is required:
-`{ kind: 'stage', stage }` or `{ kind: 'production' }`, never a default:
+**Seeing what is deployed.** `prisma deploy list [--environment <name>]` lists every
+node of the topology the last deploy recorded, with its kind, platform ID and,
+for a service, its URL; the root's ID is the Project's, and a module has none.
+It finds the app as `deploy` does (`--name`, `--entry`) and fails with
+`DEPLOY.TARGET_NOT_FOUND` when the environment has nothing deployed. Piped:
+address, kind, platform ID, URL per line; `--json`: `[{ address, kind, platformId, url }]`. It needs
+a `prisma` CLI release that includes it; 8.0.0-rc.26 does not.
+
+**Using an address with platform commands.** A `prisma project|service|postgres|bucket`
+command takes `@<environment>:<address>` in place of the platform ID
+(`prisma service logs @pr-42:shop.api`); no environment means production. It
+acts on that one row. Deleting a service, database or bucket this way leaves
+the deploy state alone, so the next deploy recreates it; deleting the Project
+removes its deploy state too. It needs a `prisma` CLI release newer than
+8.0.0-rc.28.
+
+**Removing an app** with every environment is a platform command: find the Project
+id with `prisma project list`, then `prisma project delete <id> --confirm <id>`,
+and check `prisma project list` again to confirm it is gone. It works while the
+app's services are running. Don't write a script for this.
+
+**Destroying one environment** is the `destroy` operation, and its
+`environment` is required, even for production; it has no default and a call
+without it fails with `DEPLOY.ENVIRONMENT_REQUIRED`:
 
 ```ts
-await destroy({ entry: 'module.ts', target: { kind: 'stage', stage: 'pr-42' }, config });
+await destroy({ entry: 'module.ts', environment: 'pr-42', config });
+await destroy({ entry: 'module.ts', environment: 'production', config });
 ```
 
-Destroying a stage
+Destroying any environment other than production
 deletes its Branch after removing its resources. Destroying production
 removes only the resources inside the production Branch, never the Branch
 itself directly; once the Project is empty it is deleted too, and that
 deletion takes the production Branch with it. A Project still holding
-another stage's resources is kept. Destroy never creates anything:
+another environment's resources is kept. Destroy never creates anything:
 destroying a
-never-deployed stage fails rather than standing one up.
+never-deployed environment fails rather than standing one up.
+
+**Upgrading from stages.** `--stage <name>` is now `--environment <name>`;
+`destroy({ target })` is now `destroy({ environment })`, with production as
+`'production'`; the `--report` file's `stage` field is now `environment`, at
+`version` 2. Keep `@prisma/composer-prisma-cloud` on the same Composer version
+as the Composer that runs the deploy. An older extension would read every
+environment as production, so deploy and destroy refuse it with
+`DEPS.EXTENSION_INCOMPATIBLE`.
 
 **The engine underneath is alchemy.** Convergence is executed by [alchemy](https://alchemy.run), a third-party infrastructure-as-code engine that arrives as an ordinary, exactly-pinned npm dependency of `@prisma/composer` (2.0.0-beta.83 at this library version). Your code never imports or configures it; consult alchemy's own docs for the engine itself. What matters operationally:
 
@@ -396,14 +473,15 @@ needed.
 1. The deploy and destroy operations write the pipeline's results to a generated, gitignored
    stack file at `.prisma-composer/alchemy.run.ts`, then run the alchemy CLI
    against it as a child process; `dev` does the same at
-   `.prisma-composer/dev/alchemy.run.ts` with local providers. The file
+   `.prisma-composer/dev/<environment>/alchemy.run.ts` with local providers. The file
    carries the computed values as literals but reads credentials via
    `fromEnv()`, so nothing sensitive lands on disk, and it is regenerated
    every run: output, not configuration, never edited.
 2. Failures are bisectable through that file. A failing deploy names its
    path and prints a reproduce command: Node running the bin of the `alchemy`
    Composer depends on, with `deploy .prisma-composer/alchemy.run.ts --yes
-   --stage <stage>`. Running it directly separates "the framework computed the wrong thing" from "the engine or
+   --stage <stage>` (Alchemy's own flag; on Prisma Cloud its value is the
+   environment's Branch id). Running it directly separates "the framework computed the wrong thing" from "the engine or
    platform rejected the right thing". An engine failure surfaces as
    `DEPLOY.ENGINE_FAILED` carrying the exit code, the engine's own error
    lines (credentials redacted, capped at 1000 characters) and that reproduce
@@ -462,41 +540,65 @@ against local emulators. No cloud credentials are needed or read. Concepts
 that surprise:
 
 1. It runs the same pipeline as deploy, so **build first**, exactly like
-   deploy. It watches built output and restarts a service when its build
-   changes.
+   deploy, except for a service that runs a dev server (below). It watches
+   built output and restarts a service when its build changes.
+   **Dev servers.** A service whose build adapter declares one runs it in
+   place of its artifact, with no flag: every `nextjs()` service runs
+   `next dev` (the app's own `next`, resolved from `appDir`), and a `node()`
+   service runs its `dev` argv when it has one. It runs on the service's
+   instance and URL, with the deployment's environment variables: `service.load()`,
+   `service.input()` and `service.port()` work exactly as deployed, so never add a
+   `process.env` fallback for plain `next dev`. It also keeps the shell's
+   environment variables; Composer's values win. `dev` prints ``<address>: runs
+   `<command>` in <dir>`` before the app comes up and streams the dev
+   server's output prefixed `[<address>]` (other services' logs are not
+   streamed). Source edits are the dev server's own hot reload; `dev` watches
+   the entry and every service's authoring module, reconverges on a topology
+   edit, and restarts a dev server only when its environment variables changed
+   (``<address>: its environment changed; `<command>` restarted``). It has no
+   terminal (no colours or key shortcuts). The standalone build is not run
+   locally, so a standalone-only bug surfaces at `prisma deploy`. Next.js
+   refuses a second `next dev` for the same app: use the service URL.
+   `prisma dev url <address> --json` reports `runs: "dev-server"` or
+   `"artifact"`. Errors: a dev server that never listens on its `PORT` fails
+   with `DEV.SERVICE_START_FAILED` plus `A dev server must listen on the port
+   in its PORT variable.`; `DEV.DEV_SERVER_UNAVAILABLE` (e.g. `next` not
+   installed in `appDir`); `DEV.DEV_SERVER_UNSUPPORTED` (the service's package
+   is too old; the message names it).
    `ready` prints only once every service accepts connections on its port, except a service declared `compute({ ..., listens: false })` (one that never listens, like the cron scheduler), which counts as running once its process starts. A service that exits before it listens, or does not listen within 30 seconds, fails `dev` (and stops the app's other services) with a message naming the service, its port, and its log file: on a first start it is in the deploy engine's output, before the error that the deploy engine exited (`DEV.CONVERGE_FAILED` from the `dev` operation); on a warm start it is the `DEV.SERVICE_START_FAILED` message. `PRISMA_COMPOSER_SERVICE_READY_TIMEOUT_MS` raises the 30-second limit (milliseconds); the compute emulator reads it when it starts, so a running emulator keeps its old value until its process ends. An emulator that does not accept connections fails `dev` and `log` with `DEV.EMULATOR_UNREACHABLE` after a few seconds of retries; nothing else is retried.
-2. Ctrl-C (or `dev` ending on SIGTERM or a failure) stops the app's service processes and its local Postgres servers and keeps their data and ports: the next `dev` is a warm start. Starting clean, wiping this app's local instances and data first, is an explicit opt-in flag. On a fresh start, each service gets the lowest free port from 3000 up, in dependency order: a service before the services that call it, otherwise provision order. A warm start keeps the ports services already have.
-   Services, databases and buckets belong to the directory `dev` runs in: two checkouts of one app (two git worktrees) run separate processes on separate ports, with separate databases and buckets, and never restart or write into each other's. `.prisma-composer/dev/emulator-instances.json` records which local instance backs each node. A service or database keeps its port in its directory across runs, even while stopped. If a local instance is gone (a Composer upgrade discarded an emulator's state), the next `dev` re-creates it, empty, and asks for the old port, and a Prisma ORM database's (`postgres()`) committed migrations run again (a `rawPostgres()` database stays empty); when another directory has taken the port, the instance gets the lowest free one and `dev` prints `[dev] service "<address>" now uses port <new>: its previous port <old> is in use` (`database "<address>"` for a database). A directory keeps the local state of every app run from it: running a different app there (another entry, another `--name`) stops the previous app's services and databases, keeps their data and ports, and prints `[dev] stopped the local services of "<app>", the app run here before; its data is kept`; running it again resumes them. `--fresh` wipes only the app it starts. A stopped instance keeps its port reserved and a database its data, so a deleted checkout's instances keep theirs; there is no command to remove them yet.
-3. `dev` does not print service logs. The `log` operation follows the
-   already-running app's merged logs; it never builds, provisions, starts, or
-   stops anything:
+2. Ctrl-C (or `dev` ending on SIGTERM or a failure) stops the app's service processes and its local Postgres servers and keeps their data and ports: the next `dev` is a warm start. Starting clean, wiping this app's local instances and data in this environment first, is an explicit opt-in flag (`--fresh`). On a fresh start, each service gets the lowest free port from 3000 up, in dependency order: a service before the services that call it, otherwise provision order. A warm start keeps the ports services already have.
+   Services, databases and buckets belong to the directory `dev` runs in: two checkouts of one app (two git worktrees) run separate processes on separate ports, with separate databases and buckets, and never restart or write into each other's. `.prisma-composer/dev/<environment>/emulator-instances.json` records which local instance backs each node. A service or database keeps its port in its directory across runs, even while stopped. If a local instance is gone (a Composer upgrade discarded an emulator's state), the next `dev` re-creates it, empty, and asks for the old port, and a Prisma ORM database's (`postgres()`) committed migrations run again (a `rawPostgres()` database stays empty); when another directory has taken the port, the instance gets the lowest free one and `dev` prints `[dev] service "<address>" now uses port <new>: its previous port <old> is in use` (`database "<address>"` for a database). `dev` runs as the environment `dev`; `--environment <name>` runs a complete, separate local copy with its own services, databases, buckets and ports, beside any other. Running a different app or environment stops nothing. For tests that must not touch working data, use `prisma dev --environment test --fresh --detach`, and pass the same `--environment` to `dev url` and `dev stop`. `--fresh` wipes only the app it starts, in its environment. Names that differ only in case share one folder on a case-insensitive filesystem (macOS), so a name that differs from the one the folder records is refused with `DEV.ENVIRONMENT_NAME_MISMATCH`. Everything local to one copy lives in `.prisma-composer/dev/<environment>/`; the first `dev`, `dev url`, `dev stop` or `log` after upgrading from a version with one copy per directory moves the existing local state into `dev`, keeping its data. An older `@prisma/composer-prisma-cloud` is refused with `DEPS.EXTENSION_INCOMPATIBLE`. A stopped instance keeps its port reserved and a database its data, so a deleted checkout's instances keep theirs; there is no command to remove them yet.
+3. `dev` does not print the logs of services that run their artifact. The
+   `log` operation follows the already-running app's merged logs; it never
+   builds, provisions, starts, or stops anything:
 
    ```ts
    const attached = await log({ entry: 'module.ts', config, tail: 20, signal });
    if (attached.ok) for await (const { service, line } of attached.value.lines) console.log(service, line);
    ```
    Don't hard-code a local port; ports differ per directory. `prisma dev url
-   <address>` (run in the same directory as `dev`) prints where a running node
+   <address>` (run in the same directory as `dev`; `--environment`, default `dev`, picks the copy; the address's first segment names the app, and no entry is loaded) prints where a running node
    answers: a service's `http://localhost:<port>`, a database's connection
    string, a bucket's S3 endpoint plus `/<bucket>`. The URL alone goes to
-   stdout, piped or not, so scripts use `url=$(prisma dev url gateway) && curl "$url"`
+   stdout, piped or not, so scripts use `url=$(prisma dev url shop.gateway) && curl "$url"`
    (`dev url`, `dev stop` and `emulator list` first ship in the `prisma`
    release after 8.0.0-rc.23).
    `--json` gives the full result or the error with its code. It fails with
-   `DEV.NOT_STARTED_HERE` (no `dev` ran here), `DEV.ADDRESS_UNKNOWN` (lists
+   `DEV.NOT_STARTED_HERE` (that app never ran in that environment here), `DEV.ADDRESS_UNKNOWN` (lists
    the known addresses), `DEV.EMULATOR_UNREACHABLE`, or `DEV.NOT_RUNNING` (the
    node is stopped, a service is crash-looping and its log is named, or the
    emulator lost the node and the next `dev` creates it again).
-   `prisma dev stop` stops the app's services and database servers when `dev`
-   was killed without doing it; data and ports stay. It lists what it
+   `prisma dev stop` stops the app's services and database servers in one
+   environment (`--environment`, default `dev`; the app comes from the entry
+   or `--name`) when `dev` was killed without doing it; data and ports stay. It lists what it
    stopped, and says so and still succeeds when nothing was running.
    `prisma emulator list`
    shows every local emulator and its instances, from any directory; one that
    runs but cannot be listed carries an `error` in its own entry. Piped, it
    writes one tab-separated line per instance: emulator kind, instance id,
-   URL, state, node address, directory.
+   URL, state, node address, directory, environment.
    `prisma emulator start` and `stop` are planned.
-   For agents, scripts and CI, `prisma dev <entry> --detach` runs the app in
+   For agents, scripts and CI, `prisma dev --detach` runs the app in
    the background: it exits 0 once every service answers and prints the URLs,
    does not watch for changes, and leaves the app running until
    `prisma dev stop`. Use it, then `prisma dev stop`, instead of keeping a
@@ -506,9 +608,7 @@ that surprise:
    build and run `prisma dev --detach` again.
 4. `dev` reads `prisma.config.ts` once, at start, and watches it: after an
    edit it says so and pauses rebuilds until you restart `dev`.
-5. An unset secret doesn't block a local run: it becomes a placeholder plus a
-   warning, and only the code path that spends it fails, at the external
-   service it calls.
+5. `dev` reads secrets only from its environment variables: export them in the shell, or load a `.env`: install the `dotenv` package, then make `import 'dotenv/config'` the first line of `prisma.config.ts` (`process.loadEnvFile('.env')` works only under Node, not Bun). A required secret that is unset or empty stops `dev` with an error naming it; an optional one reaches the service as absent. A changed value takes effect on the next `prisma dev`. A `.env` that only the framework loads (Next.js) does not count: Composer reads secrets before the dev server starts.
 6. The emulators are machine-wide daemons shared by every `dev`, registered
    under `~/.prisma-composer/emulators`. Set `PRISMA_COMPOSER_EMULATORS_DIR`
    to an absolute directory to give a checkout or CI job its own compute,
@@ -528,10 +628,10 @@ ignored. If the emulator reports that `@prisma/dev` did not resolve, the install
 is broken: reinstall dependencies rather than adding `@prisma/dev` or `prisma`.
 Cloud deployment and local apps without Postgres never load this runtime.
 
-## Testing is an environment seam
+## Testing is a dependency-injection seam
 
-A test is just another environment: one where you decide what `load()` and
-`input()` return, never by editing the code under test.
+A test decides what `load()` and `input()` return, never by editing the code
+under test.
 
 | You want to… | Use | From |
 | --- | --- | --- |
@@ -620,9 +720,14 @@ today the blocks above plus your own Modules are the whole set, so verify a
    node names must be ASCII letters and digits only (`[A-Za-z0-9]`): they
    derive config keys and address segments, so a hyphenated name like
    `my-db` passes `tsc` and then fails the load. The root module's name is
-   exempt. A provision id shorter than 3 characters is rejected by the
-   platform (name the database `'database'`, not `'db'`), and a service
-   whose name equals its enclosing Module's reads as `auth.auth` unless
+   the app name and may also contain `-` and `_`. Every platform name is the
+   node's full address, so short provision ids are fine: `db` in the app
+   `shop` names its platform rows `shop.db`. Only a full address over its
+   kind's limit fails the deploy: 52 characters for a database's
+   Connection, 100 for a bucket, 256 for a service. The platform's minimums
+   (3 for a Connection, 1 otherwise) are always met, because the shortest
+   address below the root, such as `a.b`, has 3 characters. A service
+   whose name equals its enclosing Module's reads as `shop.auth.auth` unless
    given an explicit `id`.
 8. **`MIGRATION_PATH_NOT_FOUND`**: see Databases above; author the missing
    migration, don't skip the plan step.
@@ -646,10 +751,12 @@ today the blocks above plus your own Modules are the whole set, so verify a
 
 Name the gap instead of inventing an API:
 
-1. **No `prisma` command for teardown or logs.** Use the `destroy` and `log`
-   operations of `@prisma/composer/control` from a script. A destroy script
+1. **No `prisma` command for removing one environment, or for logs.** Remove a whole
+   app with `prisma project delete <id> --confirm <id>`. For one environment and for
+   logs, use the `destroy` and `log` operations of `@prisma/composer/control`
+   from a script. A destroy script
    cannot use the `prisma auth login` session; it needs `PRISMA_SERVICE_TOKEN`
-   and `PRISMA_WORKSPACE_ID` in the environment.
+   and `PRISMA_WORKSPACE_ID` as environment variables.
 2. **No in-memory contract bindings.** A dependency can't yet be wired to a
    co-located handler without HTTP; use `bootstrapService` with a loopback
    fake.

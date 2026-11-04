@@ -1,22 +1,27 @@
 // use prisma-8
 
 model Product {
-  id            Int            @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   name          String
-  slug          String         @unique
+  slug          String   @unique
   description   String?
   priceCents    Int
-  stockQuantity Int            @default(0)
+  stockQuantity Int      @default(0)
 
-  // Temporary legacy image.
-  // We keep this while converting the storefront to ProductImage.
+  // Temporary legacy image field.
+  // We will remove this after all old image URLs are migrated/deleted.
   imageUrl      String?
 
-  isActive      Boolean        @default(true)
+  isActive      Boolean  @default(true)
+
+  // Controls storefront ordering.
+  // Lower number = shown earlier.
+  displayOrder  Int      @default(0)
+
   images        ProductImage[]
 
-  createdAt     TimestamptzString @default(now())
-  updatedAt     temporal.updatedAtString()
+  createdAt     DateTime(as: string) @onCreate(now())
+  updatedAt     DateTime(as: string) @onCreate(now()) @onUpdate(now())
 }
 
 model ProductImage {
@@ -29,5 +34,5 @@ model ProductImage {
   altText     String?
   position    Int      @default(0)
 
-  createdAt   TimestamptzString @default(now())
+  createdAt   DateTime(as: string) @onCreate(now())
 }

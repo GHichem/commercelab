@@ -1,10 +1,10 @@
 import { Router } from 'express'
 
-import { db } from '../prisma/db.js'
 import {
   PRODUCT_IMAGES_BUCKET,
   supabaseAdmin,
 } from '../config/supabase.js'
+import { db } from '../prisma/db.js'
 
 export const productsRouter = Router()
 
@@ -14,13 +14,22 @@ productsRouter.get('/', async (_req, res) => {
       .where({
         isActive: true,
       })
-      .include('images', (image) =>
-        image.orderBy((image) => image.position.asc()),
+      .include('images', (images) =>
+        images.orderBy(
+          (image) => image.position.asc(),
+        ),
       )
       .all()
 
-    const productsWithImageUrls = products.map((product) => ({
+    const sortedProducts = [...products].sort(
+      (a, b) =>
+        a.displayOrder - b.displayOrder ||
+        a.id - b.id,
+    )
+
+    const result = sortedProducts.map((product) => ({
       ...product,
+
       images: product.images.map((image) => {
         const { data } = supabaseAdmin
           .storage
@@ -34,12 +43,15 @@ productsRouter.get('/', async (_req, res) => {
       }),
     }))
 
-    res.json(productsWithImageUrls)
+    return res.json(result)
   } catch (error) {
-    console.error(error)
+    console.error(
+      'Failed to fetch products:',
+      error,
+    )
 
-    res.status(500).json({
-      message: 'Failed to fetch products',
+    return res.status(500).json({
+      message: 'Failed to fetch products.',
     })
   }
 })
