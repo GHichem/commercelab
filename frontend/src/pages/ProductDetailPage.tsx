@@ -13,18 +13,30 @@ import {
   type Product,
 } from '../api/products'
 import { Header } from '../components/Header'
+import { useCart } from '../context/CartContext'
 
 export function ProductDetailPage() {
   const { slug } = useParams()
 
+  const {
+    addToCart,
+  } = useCart()
+
   const [product, setProduct] =
     useState<Product | null>(null)
 
-  const [selectedImageIndex, setSelectedImageIndex] =
-    useState(0)
+  const [
+    selectedImageIndex,
+    setSelectedImageIndex,
+  ] = useState(0)
 
   const [quantity, setQuantity] =
     useState(1)
+
+  const [
+    addedMessage,
+    setAddedMessage,
+  ] = useState(false)
 
   const [isLoading, setIsLoading] =
     useState(true)
@@ -34,7 +46,10 @@ export function ProductDetailPage() {
 
   useEffect(() => {
     if (!slug) {
-      setError('Product not found.')
+      setError(
+        'Product not found.',
+      )
+
       setIsLoading(false)
       return
     }
@@ -42,7 +57,9 @@ export function ProductDetailPage() {
     async function loadProduct() {
       try {
         const data =
-          await getProductBySlug(slug!)
+          await getProductBySlug(
+            slug!,
+          )
 
         setProduct(data)
       } catch (error) {
@@ -59,31 +76,43 @@ export function ProductDetailPage() {
     loadProduct()
   }, [slug])
 
-  const images = useMemo(() => {
-    if (!product) {
+  const images =
+    useMemo(() => {
+      if (!product) {
+        return []
+      }
+
+      if (
+        product.images.length >
+        0
+      ) {
+        return product.images.map(
+          (image) => ({
+            url: image.url,
+
+            alt:
+              image.altText ??
+              product.name,
+          }),
+        )
+      }
+
+      if (
+        product.imageUrl
+      ) {
+        return [
+          {
+            url:
+              product.imageUrl,
+
+            alt:
+              product.name,
+          },
+        ]
+      }
+
       return []
-    }
-
-    if (product.images.length > 0) {
-      return product.images.map((image) => ({
-        url: image.url,
-        alt:
-          image.altText ??
-          product.name,
-      }))
-    }
-
-    if (product.imageUrl) {
-      return [
-        {
-          url: product.imageUrl,
-          alt: product.name,
-        },
-      ]
-    }
-
-    return []
-  }, [product])
+    }, [product])
 
   if (isLoading) {
     return (
@@ -97,14 +126,18 @@ export function ProductDetailPage() {
     )
   }
 
-  if (error || !product) {
+  if (
+    error ||
+    !product
+  ) {
     return (
       <div className="min-h-screen bg-[#f7f4ee] text-[#1c1c18]">
         <Header />
 
         <main className="mx-auto max-w-7xl px-6 py-16">
           <p className="text-[#9b3e2f]">
-            {error ?? 'Product not found.'}
+            {error ??
+              'Product not found.'}
           </p>
 
           <Link
@@ -119,29 +152,53 @@ export function ProductDetailPage() {
   }
 
   const price =
-    (product.priceCents / 100).toFixed(2)
+    (
+      product.priceCents /
+      100
+    ).toFixed(2)
 
   const isOutOfStock =
-    product.stockQuantity === 0
+    product.stockQuantity ===
+    0
 
   const selectedImage =
-    images[selectedImageIndex]
+    images[
+      selectedImageIndex
+    ]
 
   function decreaseQuantity() {
-    setQuantity((current) =>
-      Math.max(
-        1,
-        current - 1,
-      ),
+    setQuantity(
+      (current) =>
+        Math.max(
+          1,
+          current - 1,
+        ),
     )
   }
 
   function increaseQuantity() {
-    setQuantity((current) =>
-      Math.min(
-        product.stockQuantity,
-        current + 1,
-      ),
+    setQuantity(
+      (current) =>
+        Math.min(
+          product.stockQuantity,
+          current + 1,
+        ),
+    )
+  }
+
+  function handleAddToCart() {
+    addToCart(
+      product,
+      quantity,
+    )
+
+    setAddedMessage(true)
+
+    window.setTimeout(
+      () => {
+        setAddedMessage(false)
+      },
+      2000,
     )
   }
 
@@ -162,8 +219,12 @@ export function ProductDetailPage() {
             <div className="aspect-square overflow-hidden border border-[#d8d2c8] bg-white">
               {selectedImage ? (
                 <img
-                  src={selectedImage.url}
-                  alt={selectedImage.alt}
+                  src={
+                    selectedImage.url
+                  }
+                  alt={
+                    selectedImage.alt
+                  }
                   className="h-full w-full object-cover"
                 />
               ) : (
@@ -173,28 +234,41 @@ export function ProductDetailPage() {
               )}
             </div>
 
-            {images.length > 1 && (
+            {images.length >
+              1 && (
               <div className="mt-4 grid grid-cols-4 gap-3 sm:grid-cols-5">
-                {images.map((image, index) => (
-                  <button
-                    key={`${image.url}-${index}`}
-                    type="button"
-                    onClick={() =>
-                      setSelectedImageIndex(index)
-                    }
-                    className={
-                      index === selectedImageIndex
-                        ? 'aspect-square overflow-hidden border-2 border-[#1c1c18] bg-white'
-                        : 'aspect-square overflow-hidden border border-[#d8d2c8] bg-white'
-                    }
-                  >
-                    <img
-                      src={image.url}
-                      alt={image.alt}
-                      className="h-full w-full object-cover"
-                    />
-                  </button>
-                ))}
+                {images.map(
+                  (
+                    image,
+                    index,
+                  ) => (
+                    <button
+                      key={`${image.url}-${index}`}
+                      type="button"
+                      onClick={() =>
+                        setSelectedImageIndex(
+                          index,
+                        )
+                      }
+                      className={
+                        index ===
+                        selectedImageIndex
+                          ? 'aspect-square overflow-hidden border-2 border-[#1c1c18] bg-white'
+                          : 'aspect-square overflow-hidden border border-[#d8d2c8] bg-white'
+                      }
+                    >
+                      <img
+                        src={
+                          image.url
+                        }
+                        alt={
+                          image.alt
+                        }
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  ),
+                )}
               </div>
             )}
           </div>
@@ -242,7 +316,9 @@ export function ProductDetailPage() {
                     <div className="flex items-center border border-[#cfc8bc] bg-[#fbf9f5]">
                       <button
                         type="button"
-                        onClick={decreaseQuantity}
+                        onClick={
+                          decreaseQuantity
+                        }
                         className="px-4 py-2 text-lg"
                       >
                         −
@@ -254,7 +330,9 @@ export function ProductDetailPage() {
 
                       <button
                         type="button"
-                        onClick={increaseQuantity}
+                        onClick={
+                          increaseQuantity
+                        }
                         className="px-4 py-2 text-lg"
                       >
                         +
@@ -264,14 +342,23 @@ export function ProductDetailPage() {
 
                   <button
                     type="button"
+                    onClick={
+                      handleAddToCart
+                    }
                     className="mt-6 w-full border border-[#1c1c18] bg-[#1c1c18] px-6 py-4 text-sm font-medium text-white transition hover:bg-[#8c3b24] lg:max-w-sm"
                   >
-                    Add {quantity} to cart
+                    Add {quantity}{' '}
+                    to cart
                   </button>
+
+                  {addedMessage && (
+                    <p className="mt-3 text-sm text-[#66725f]">
+                      Added to cart.
+                    </p>
+                  )}
                 </>
               )}
             </div>
-
           </div>
         </section>
       </main>
