@@ -20,6 +20,10 @@ import {
 } from './routes/admin-products.js'
 
 import {
+  ordersRouter,
+} from './routes/orders.js'
+
+import {
   productsRouter,
 } from './routes/products.js'
 
@@ -57,22 +61,34 @@ app.get(
   },
 )
 
-// Public shop API
+/*
+ * Public storefront API
+ */
 app.use(
   '/products',
   productsRouter,
 )
 
-// Login/logout/session check.
-// This MUST come before
-// requireAdmin.
+/*
+ * Public checkout API
+ */
+app.use(
+  '/orders',
+  ordersRouter,
+)
+
+/*
+ * Admin login/session
+ */
 app.use(
   '/admin/auth',
   adminAuthRouter,
 )
 
-// Everything after this point
-// under /admin requires login.
+/*
+ * Protect every remaining
+ * /admin endpoint.
+ */
 app.use(
   '/admin',
   requireAdmin,
