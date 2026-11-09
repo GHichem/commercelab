@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 import type { Product } from '../api/products'
 
 type ProductCardProps = {
@@ -20,7 +22,10 @@ export function ProductCard({
 
   return (
     <article className="group border border-[#d8d2c8] bg-[#fbf9f5]">
-      <div className="aspect-square overflow-hidden border-b border-[#d8d2c8] bg-[#ebe6dc]">
+      <Link
+        to={`/products/${product.slug}`}
+        className="block aspect-square overflow-hidden border-b border-[#d8d2c8] bg-[#ebe6dc]"
+      >
         {mainImage ? (
           <img
             src={mainImage}
@@ -36,13 +41,16 @@ export function ProductCard({
             Product image
           </div>
         )}
-      </div>
+      </Link>
 
       <div className="p-4">
         <div className="flex items-start justify-between gap-4">
-          <h2 className="font-editorial text-2xl leading-tight">
+          <Link
+            to={`/products/${product.slug}`}
+            className="font-editorial text-2xl leading-tight transition hover:text-[#8c3b24]"
+          >
             {product.name}
-          </h2>
+          </Link>
 
           <span className="shrink-0 text-base font-semibold">
             €{price}
@@ -67,14 +75,12 @@ export function ProductCard({
               : `${product.stockQuantity} available`}
           </span>
 
-          <button
-            disabled={
-              isOutOfStock
-            }
-            className="border-b border-[#1c1c18] pb-0.5 text-sm font-medium transition hover:text-[#8c3b24] disabled:cursor-not-allowed disabled:border-[#aaa59d] disabled:text-[#aaa59d]"
+          <Link
+            to={`/products/${product.slug}`}
+            className="border-b border-[#1c1c18] pb-0.5 text-sm font-medium transition hover:text-[#8c3b24]"
           >
             View product
-          </button>
+          </Link>
         </div>
       </div>
     </article>

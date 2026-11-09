@@ -5,25 +5,12 @@ import {
   Routes,
 } from 'react-router-dom'
 
-import {
-  ProtectedAdminRoute,
-} from './components/ProtectedAdminRoute'
-
-import {
-  AdminLoginPage,
-} from './pages/AdminLoginPage'
-
-import {
-  AdminProductFormPage,
-} from './pages/AdminProductFormPage'
-
-import {
-  AdminProductsPage,
-} from './pages/AdminProductsPage'
-
-import {
-  StorefrontPage,
-} from './pages/StorefrontPage'
+import { ProtectedAdminRoute } from './components/ProtectedAdminRoute'
+import { AdminLoginPage } from './pages/AdminLoginPage'
+import { AdminProductFormPage } from './pages/AdminProductFormPage'
+import { AdminProductsPage } from './pages/AdminProductsPage'
+import { ProductDetailPage } from './pages/ProductDetailPage'
+import { StorefrontPage } from './pages/StorefrontPage'
 
 function App() {
   return (
@@ -31,22 +18,21 @@ function App() {
       <Routes>
         <Route
           path="/"
-          element={
-            <StorefrontPage />
-          }
+          element={<StorefrontPage />}
+        />
+
+        <Route
+          path="/products/:slug"
+          element={<ProductDetailPage />}
         />
 
         <Route
           path="/admin/login"
-          element={
-            <AdminLoginPage />
-          }
+          element={<AdminLoginPage />}
         />
 
         <Route
-          element={
-            <ProtectedAdminRoute />
-          }
+          element={<ProtectedAdminRoute />}
         >
           <Route
             path="/admin"
@@ -60,23 +46,17 @@ function App() {
 
           <Route
             path="/admin/products"
-            element={
-              <AdminProductsPage />
-            }
+            element={<AdminProductsPage />}
           />
 
           <Route
             path="/admin/products/new"
-            element={
-              <AdminProductFormPage />
-            }
+            element={<AdminProductFormPage />}
           />
 
           <Route
             path="/admin/products/:id/edit"
-            element={
-              <AdminProductFormPage />
-            }
+            element={<AdminProductFormPage />}
           />
         </Route>
 
