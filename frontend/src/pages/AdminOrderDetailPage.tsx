@@ -11,7 +11,16 @@ import {
 import {
   getAdminOrder,
   type AdminOrderDetail,
+  type OrderStatus,
+  updateAdminOrderStatus,
 } from '../api/admin-orders'
+
+const statuses: OrderStatus[] = [
+  'confirmed',
+  'processing',
+  'shipped',
+  'cancelled',
+]
 
 export function AdminOrderDetailPage() {
   const { id } =
@@ -27,13 +36,32 @@ export function AdminOrderDetailPage() {
   >(null)
 
   const [
+    selectedStatus,
+    setSelectedStatus,
+  ] = useState<OrderStatus>(
+    'confirmed',
+  )
+
+  const [
     loading,
     setLoading,
   ] = useState(true)
 
   const [
+    savingStatus,
+    setSavingStatus,
+  ] = useState(false)
+
+  const [
     error,
     setError,
+  ] = useState<
+    string | null
+  >(null)
+
+  const [
+    statusMessage,
+    setStatusMessage,
   ] = useState<
     string | null
   >(null)
@@ -68,6 +96,9 @@ export function AdminOrderDetailPage() {
           )
 
         setOrder(data)
+        setSelectedStatus(
+          data.status,
+        )
       } catch (error) {
         setError(
           error instanceof Error
@@ -81,6 +112,49 @@ export function AdminOrderDetailPage() {
 
     loadOrder()
   }, [id])
+
+  async function handleSaveStatus() {
+    if (!order) {
+      return
+    }
+
+    if (
+      selectedStatus ===
+      order.status
+    ) {
+      return
+    }
+
+    try {
+      setSavingStatus(true)
+      setError(null)
+      setStatusMessage(null)
+
+      const result =
+        await updateAdminOrderStatus(
+          order.id,
+          selectedStatus,
+        )
+
+      setOrder({
+        ...order,
+        status:
+          result.status,
+      })
+
+      setStatusMessage(
+        'Order status updated.',
+      )
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Could not update order status.',
+      )
+    } finally {
+      setSavingStatus(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#f7f4ee] text-[#1c1c18]">
@@ -99,7 +173,7 @@ export function AdminOrderDetailPage() {
           <nav className="flex items-center gap-5 text-sm">
             <Link
               to="/admin/products"
-              className="text-[#69655e]"
+              className="text-[#69655e] transition hover:text-[#1c1c18]"
             >
               Products
             </Link>
@@ -138,7 +212,7 @@ export function AdminOrderDetailPage() {
           order && (
             <>
               <section className="mt-8 border border-[#d8d2c8] bg-[#fbf9f5] p-6">
-                <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <p className="text-xs uppercase tracking-[0.14em] text-[#777168]">
                       Order
@@ -157,11 +231,76 @@ export function AdminOrderDetailPage() {
                     </p>
                   </div>
 
-                  <span className="self-start border border-[#cfc8bc] bg-white px-4 py-2 text-xs uppercase tracking-[0.12em]">
-                    {
-                      order.status
-                    }
-                  </span>
+                  <div className="w-full max-w-sm border border-[#d8d2c8] bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#777168]">
+                      Order status
+                    </p>
+
+                    <div className="mt-3 flex gap-3">
+                      <select
+                        value={
+                          selectedStatus
+                        }
+                        onChange={(
+                          event,
+                        ) =>
+                          setSelectedStatus(
+                            event
+                              .target
+                              .value as OrderStatus,
+                          )
+                        }
+                        disabled={
+                          savingStatus
+                        }
+                        className="min-w-0 flex-1 border border-[#cfc8bc] bg-white px-3 py-2 text-sm outline-none focus:border-[#1c1c18]"
+                      >
+                        {statuses.map(
+                          (
+                            status,
+                          ) => (
+                            <option
+                              key={
+                                status
+                              }
+                              value={
+                                status
+                              }
+                            >
+                              {formatStatus(
+                                status,
+                              )}
+                            </option>
+                          ),
+                        )}
+                      </select>
+
+                      <button
+                        type="button"
+                        onClick={
+                          handleSaveStatus
+                        }
+                        disabled={
+                          savingStatus ||
+                          selectedStatus ===
+                            order.status
+                        }
+                        className="border border-[#1c1c18] bg-[#1c1c18] px-4 py-2 text-sm text-white transition hover:bg-[#8c3b24] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {savingStatus
+                          ? 'Saving...'
+                          : 'Save'}
+                      </button>
+                    </div>
+
+                    {statusMessage && (
+                      <p className="mt-3 text-sm text-[#4f6a3f]">
+                        {
+                          statusMessage
+                        }
+                      </p>
+                    )}
+                  </div>
                 </div>
               </section>
 
@@ -305,5 +444,14 @@ export function AdminOrderDetailPage() {
           )}
       </main>
     </div>
+  )
+}
+
+function formatStatus(
+  status: OrderStatus,
+) {
+  return (
+    status.charAt(0).toUpperCase() +
+    status.slice(1)
   )
 }

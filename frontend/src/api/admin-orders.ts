@@ -1,3 +1,9 @@
+export type OrderStatus =
+  | 'confirmed'
+  | 'processing'
+  | 'shipped'
+  | 'cancelled'
+
 export type AdminOrder = {
   id: number
   orderNumber: string
@@ -11,7 +17,7 @@ export type AdminOrder = {
   postalCode: string
   country: string
 
-  status: string
+  status: OrderStatus
 
   subtotalCents: number
   totalCents: number
@@ -86,6 +92,48 @@ export async function getAdminOrder(
   if (!response.ok) {
     throw new Error(
       'Could not load order.',
+    )
+  }
+
+  return response.json()
+}
+
+export async function updateAdminOrderStatus(
+  id: number,
+  status: OrderStatus,
+): Promise<{
+  id: number
+  status: OrderStatus
+}> {
+  const response =
+    await fetch(
+      `${apiUrl}/admin/orders/${id}/status`,
+      {
+        method: 'PATCH',
+
+        credentials:
+          'include',
+
+        headers: {
+          'Content-Type':
+            'application/json',
+        },
+
+        body: JSON.stringify({
+          status,
+        }),
+      },
+    )
+
+  if (!response.ok) {
+    const data =
+      await response
+        .json()
+        .catch(() => null)
+
+    throw new Error(
+      data?.message ??
+        'Could not update order status.',
     )
   }
 
