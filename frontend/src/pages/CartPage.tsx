@@ -57,7 +57,7 @@ export function CartPage() {
         ) : (
           <div className="mt-10 grid gap-12 lg:grid-cols-[1fr_360px]">
             <section>
-              <div className="space-y-0 border border-[#d8d2c8] bg-[#fbf9f5]">
+              <div className="border border-[#d8d2c8] bg-[#fbf9f5]">
                 {items.map((item) => {
                   const itemTotal =
                     (
@@ -154,9 +154,7 @@ export function CartPage() {
                                   `Remove ${item.name} from your cart?`,
                                 )
 
-                              if (
-                                confirmed
-                              ) {
+                              if (confirmed) {
                                 removeFromCart(
                                   item.productId,
                                 )
@@ -187,9 +185,7 @@ export function CartPage() {
                       'Clear the entire cart?',
                     )
 
-                  if (
-                    confirmed
-                  ) {
+                  if (confirmed) {
                     clearCart()
                   }
                 }}
@@ -219,12 +215,12 @@ export function CartPage() {
                   Shipping and taxes will be calculated at checkout.
                 </p>
 
-                <button
-                  type="button"
-                  className="mt-6 w-full border border-[#1c1c18] bg-[#1c1c18] px-5 py-4 text-sm font-medium text-white transition hover:bg-[#8c3b24]"
+                <Link
+                  to="/checkout"
+                  className="mt-6 block w-full border border-[#1c1c18] bg-[#1c1c18] px-5 py-4 text-center text-sm font-medium text-white transition hover:bg-[#8c3b24]"
                 >
                   Continue to checkout
-                </button>
+                </Link>
 
                 <Link
                   to="/"

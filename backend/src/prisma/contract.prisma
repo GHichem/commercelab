@@ -8,17 +8,14 @@ model Product {
   priceCents    Int
   stockQuantity Int      @default(0)
 
-  // Temporary legacy image field.
-  // We will remove this after all old image URLs are migrated/deleted.
+  // Temporary legacy field.
   imageUrl      String?
 
   isActive      Boolean  @default(true)
-
-  // Controls storefront ordering.
-  // Lower number = shown earlier.
   displayOrder  Int      @default(0)
 
   images        ProductImage[]
+  orderItems    OrderItem[]
 
   createdAt     DateTime(as: string) @onCreate(now())
   updatedAt     DateTime(as: string) @onCreate(now()) @onUpdate(now())
@@ -35,4 +32,44 @@ model ProductImage {
   position    Int      @default(0)
 
   createdAt   DateTime(as: string) @onCreate(now())
+}
+
+model Order {
+  id            Int         @id @default(autoincrement())
+  orderNumber   String      @unique
+
+  email         String
+  firstName     String
+  lastName      String
+
+  address       String
+  city          String
+  postalCode    String
+  country       String
+
+  status        String      @default("confirmed")
+
+  subtotalCents Int
+  totalCents    Int
+
+  items         OrderItem[]
+
+  createdAt     DateTime(as: string) @onCreate(now())
+}
+
+model OrderItem {
+  id             Int      @id @default(autoincrement())
+
+  orderId        Int
+  order          Order    @relation(fields: [orderId], references: [id])
+
+  productId      Int?
+  product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  productName    String
+  productSlug    String
+
+  unitPriceCents Int
+  quantity       Int
+  lineTotalCents Int
 }

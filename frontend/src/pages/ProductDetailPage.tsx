@@ -1,6 +1,5 @@
 import {
   useEffect,
-  useMemo,
   useState,
 } from 'react'
 import {
@@ -8,41 +7,59 @@ import {
   useParams,
 } from 'react-router-dom'
 
-import {
-  getProductBySlug,
-  type Product,
+import type {
+  Product,
 } from '../api/products'
+
 import { Header } from '../components/Header'
 import { useCart } from '../context/CartContext'
 
+const apiUrl =
+  import.meta.env.VITE_API_URL
+
 export function ProductDetailPage() {
-  const { slug } = useParams()
+  const { slug } = useParams<{
+    slug: string
+  }>()
 
-  const {
-    addToCart,
-  } = useCart()
-
-  const [product, setProduct] =
-    useState<Product | null>(null)
+  const { addToCart } =
+    useCart()
 
   const [
-    selectedImageIndex,
-    setSelectedImageIndex,
-  ] = useState(0)
+    product,
+    setProduct,
+  ] = useState<Product | null>(
+    null,
+  )
 
-  const [quantity, setQuantity] =
-    useState(1)
+  const [
+    selectedImage,
+    setSelectedImage,
+  ] = useState<string | null>(
+    null,
+  )
+
+  const [
+    quantity,
+    setQuantity,
+  ] = useState(1)
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true)
+
+  const [
+    error,
+    setError,
+  ] = useState<string | null>(
+    null,
+  )
 
   const [
     addedMessage,
     setAddedMessage,
   ] = useState(false)
-
-  const [isLoading, setIsLoading] =
-    useState(true)
-
-  const [error, setError] =
-    useState<string | null>(null)
 
   useEffect(() => {
     if (!slug) {
@@ -50,18 +67,40 @@ export function ProductDetailPage() {
         'Product not found.',
       )
 
-      setIsLoading(false)
+      setLoading(false)
+
       return
     }
 
     async function loadProduct() {
       try {
-        const data =
-          await getProductBySlug(
-            slug!,
+        setLoading(true)
+        setError(null)
+
+        const response =
+          await fetch(
+            `${apiUrl}/products/${slug}`,
           )
 
+        if (!response.ok) {
+          throw new Error(
+            'Product not found.',
+          )
+        }
+
+        const data: Product =
+          await response.json()
+
         setProduct(data)
+
+        const firstImage =
+          data.images?.[0]?.url ??
+          data.imageUrl ??
+          null
+
+        setSelectedImage(
+          firstImage,
+        )
       } catch (error) {
         setError(
           error instanceof Error
@@ -69,58 +108,78 @@ export function ProductDetailPage() {
             : 'Could not load product.',
         )
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
     loadProduct()
   }, [slug])
 
-  const images =
-    useMemo(() => {
-      if (!product) {
-        return []
-      }
+  function decreaseQuantity() {
+    setQuantity(
+      (current) =>
+        Math.max(
+          1,
+          current - 1,
+        ),
+    )
+  }
 
-      if (
-        product.images.length >
-        0
-      ) {
-        return product.images.map(
-          (image) => ({
-            url: image.url,
+  function increaseQuantity() {
+    if (!product) {
+      return
+    }
 
-            alt:
-              image.altText ??
-              product.name,
-          }),
-        )
-      }
+    setQuantity(
+      (current) =>
+        Math.min(
+          product.stockQuantity,
+          current + 1,
+        ),
+    )
+  }
 
-      if (
-        product.imageUrl
-      ) {
-        return [
-          {
-            url:
-              product.imageUrl,
+  function handleAddToCart() {
+    if (!product) {
+      return
+    }
 
-            alt:
-              product.name,
-          },
-        ]
-      }
+    if (
+      product.stockQuantity <= 0
+    ) {
+      return
+    }
 
-      return []
-    }, [product])
+    const nextQuantity =
+      Math.min(
+        quantity,
+        product.stockQuantity,
+      )
 
-  if (isLoading) {
+    addToCart(
+      product,
+      nextQuantity,
+    )
+
+    setAddedMessage(true)
+
+    window.setTimeout(
+      () => {
+        setAddedMessage(false)
+      },
+      2000,
+    )
+  }
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#f7f4ee] text-[#1c1c18]">
         <Header />
 
-        <main className="mx-auto max-w-7xl px-6 py-16">
-          Loading product...
+        <main className="mx-auto max-w-7xl px-6 py-20">
+          <p className="text-[#69655e]">
+            Loading product...
+          </p>
         </main>
       </div>
     )
@@ -134,73 +193,45 @@ export function ProductDetailPage() {
       <div className="min-h-screen bg-[#f7f4ee] text-[#1c1c18]">
         <Header />
 
-        <main className="mx-auto max-w-7xl px-6 py-16">
-          <p className="text-[#9b3e2f]">
+        <main className="mx-auto max-w-7xl px-6 py-20">
+          <h1 className="font-editorial text-5xl">
+            Product not found
+          </h1>
+
+          <p className="mt-4 text-[#69655e]">
             {error ??
-              'Product not found.'}
+              'This product is unavailable.'}
           </p>
 
           <Link
             to="/"
-            className="mt-6 inline-block border-b border-[#1c1c18] text-sm"
+            className="mt-7 inline-block border border-[#1c1c18] px-5 py-3 text-sm transition hover:bg-[#1c1c18] hover:text-white"
           >
-            ← Back to shop
+            Back to shop
           </Link>
         </main>
       </div>
     )
   }
 
-  const price =
-    (
-      product.priceCents /
-      100
-    ).toFixed(2)
+  const productImages =
+    product.images?.length
+      ? product.images
+      : product.imageUrl
+        ? [
+            {
+              id: -1,
+              url:
+                product.imageUrl,
+              altText:
+                product.name,
+              position: 0,
+            },
+          ]
+        : []
 
   const isOutOfStock =
-    product.stockQuantity ===
-    0
-
-  const selectedImage =
-    images[
-      selectedImageIndex
-    ]
-
-  function decreaseQuantity() {
-    setQuantity(
-      (current) =>
-        Math.max(
-          1,
-          current - 1,
-        ),
-    )
-  }
-
-  function increaseQuantity() {
-    setQuantity(
-      (current) =>
-        Math.min(
-          product.stockQuantity,
-          current + 1,
-        ),
-    )
-  }
-
-  function handleAddToCart() {
-    addToCart(
-      product,
-      quantity,
-    )
-
-    setAddedMessage(true)
-
-    window.setTimeout(
-      () => {
-        setAddedMessage(false)
-      },
-      2000,
-    )
-  }
+    product.stockQuantity <= 0
 
   return (
     <div className="min-h-screen bg-[#f7f4ee] text-[#1c1c18]">
@@ -214,153 +245,179 @@ export function ProductDetailPage() {
           ← Back to shop
         </Link>
 
-        <section className="mt-8 grid gap-12 lg:grid-cols-2">
-          <div>
+        <div className="mt-8 grid gap-12 lg:grid-cols-2">
+          <section>
             <div className="aspect-square overflow-hidden border border-[#d8d2c8] bg-white">
               {selectedImage ? (
                 <img
                   src={
-                    selectedImage.url
+                    selectedImage
                   }
                   alt={
-                    selectedImage.alt
+                    product.name
                   }
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex h-full items-center justify-center text-sm text-[#8d887f]">
-                  No product image
+                <div className="flex h-full items-center justify-center text-[#8d887f]">
+                  No image available
                 </div>
               )}
             </div>
 
-            {images.length >
+            {productImages.length >
               1 && (
               <div className="mt-4 grid grid-cols-4 gap-3 sm:grid-cols-5">
-                {images.map(
-                  (
-                    image,
-                    index,
-                  ) => (
-                    <button
-                      key={`${image.url}-${index}`}
-                      type="button"
-                      onClick={() =>
-                        setSelectedImageIndex(
-                          index,
-                        )
-                      }
-                      className={
-                        index ===
-                        selectedImageIndex
-                          ? 'aspect-square overflow-hidden border-2 border-[#1c1c18] bg-white'
-                          : 'aspect-square overflow-hidden border border-[#d8d2c8] bg-white'
-                      }
-                    >
-                      <img
-                        src={
-                          image.url
+                {productImages.map(
+                  (image) => {
+                    const active =
+                      selectedImage ===
+                      image.url
+
+                    return (
+                      <button
+                        key={
+                          image.id
                         }
-                        alt={
-                          image.alt
+                        type="button"
+                        onClick={() =>
+                          setSelectedImage(
+                            image.url,
+                          )
                         }
-                        className="h-full w-full object-cover"
-                      />
-                    </button>
-                  ),
+                        className={`aspect-square overflow-hidden border bg-white transition ${
+                          active
+                            ? 'border-[#1c1c18]'
+                            : 'border-[#d8d2c8] hover:border-[#8c3b24]'
+                        }`}
+                      >
+                        <img
+                          src={
+                            image.url
+                          }
+                          alt={
+                            image.altText ??
+                            product.name
+                          }
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
+                    )
+                  },
                 )}
               </div>
             )}
-          </div>
+          </section>
 
-          <div className="lg:py-6">
+          <section className="lg:pt-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8c3b24]">
               CommerceLab
             </p>
 
-            <h1 className="font-editorial mt-4 text-5xl leading-[0.95] sm:text-6xl">
+            <h1 className="font-editorial mt-3 text-5xl leading-tight sm:text-6xl">
               {product.name}
             </h1>
 
-            <p className="mt-5 text-2xl font-semibold">
-              €{price}
+            <p className="mt-6 text-2xl font-semibold">
+              €
+              {(
+                product.priceCents /
+                100
+              ).toFixed(2)}
             </p>
 
-            <div className="mt-6 border-t border-[#cfc8bc] pt-6">
-              <p className="max-w-xl leading-7 text-[#69655e]">
-                {product.description ??
-                  'No description available.'}
-              </p>
-            </div>
-
-            <div className="mt-8 border-t border-[#cfc8bc] pt-6">
-              <p
-                className={
-                  isOutOfStock
-                    ? 'text-xs font-semibold uppercase tracking-[0.16em] text-[#9b3e2f]'
-                    : 'text-xs font-semibold uppercase tracking-[0.16em] text-[#66725f]'
+            {product.description && (
+              <p className="mt-7 max-w-xl leading-7 text-[#69655e]">
+                {
+                  product.description
                 }
-              >
-                {isOutOfStock
-                  ? 'Out of stock'
-                  : `${product.stockQuantity} available`}
               </p>
+            )}
 
-              {!isOutOfStock && (
-                <>
-                  <div className="mt-5 flex items-center gap-4">
-                    <span className="text-sm font-medium">
-                      Quantity
-                    </span>
-
-                    <div className="flex items-center border border-[#cfc8bc] bg-[#fbf9f5]">
-                      <button
-                        type="button"
-                        onClick={
-                          decreaseQuantity
-                        }
-                        className="px-4 py-2 text-lg"
-                      >
-                        −
-                      </button>
-
-                      <span className="min-w-10 text-center text-sm">
-                        {quantity}
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={
-                          increaseQuantity
-                        }
-                        className="px-4 py-2 text-lg"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={
-                      handleAddToCart
-                    }
-                    className="mt-6 w-full border border-[#1c1c18] bg-[#1c1c18] px-6 py-4 text-sm font-medium text-white transition hover:bg-[#8c3b24] lg:max-w-sm"
-                  >
-                    Add {quantity}{' '}
-                    to cart
-                  </button>
-
-                  {addedMessage && (
-                    <p className="mt-3 text-sm text-[#66725f]">
-                      Added to cart.
-                    </p>
-                  )}
-                </>
+            <div className="mt-8 border-y border-[#d8d2c8] py-5">
+              {isOutOfStock ? (
+                <p className="text-sm font-medium text-[#9b3e2f]">
+                  Out of stock
+                </p>
+              ) : (
+                <p className="text-sm text-[#69655e]">
+                  {
+                    product.stockQuantity
+                  }{' '}
+                  in stock
+                </p>
               )}
             </div>
-          </div>
-        </section>
+
+            {!isOutOfStock && (
+              <div className="mt-8">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#69655e]">
+                  Quantity
+                </p>
+
+                <div className="flex items-center gap-5">
+                  <div className="flex items-center border border-[#cfc8bc] bg-white">
+                    <button
+                      type="button"
+                      onClick={
+                        decreaseQuantity
+                      }
+                      disabled={
+                        quantity <= 1
+                      }
+                      className="px-5 py-3 text-lg disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      −
+                    </button>
+
+                    <span className="min-w-12 text-center">
+                      {quantity}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={
+                        increaseQuantity
+                      }
+                      disabled={
+                        quantity >=
+                        product.stockQuantity
+                      }
+                      className="px-5 py-3 text-lg disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <span className="text-sm text-[#777168]">
+                    Max{' '}
+                    {
+                      product.stockQuantity
+                    }
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    handleAddToCart
+                  }
+                  className="mt-6 w-full border border-[#1c1c18] bg-[#1c1c18] px-6 py-4 text-sm font-medium text-white transition hover:bg-[#8c3b24] sm:w-auto sm:min-w-64"
+                >
+                  Add{' '}
+                  {quantity}{' '}
+                  to cart
+                </button>
+
+                {addedMessage && (
+                  <p className="mt-4 text-sm font-medium text-[#4f6a3f]">
+                    Added to cart.
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+        </div>
       </main>
     </div>
   )

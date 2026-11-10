@@ -88,7 +88,7 @@ app.use(
 )
 
 /*
- * Protect everything below /admin
+ * Protect all remaining /admin routes
  */
 app.use(
   '/admin',
