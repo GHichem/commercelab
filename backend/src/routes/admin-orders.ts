@@ -152,11 +152,11 @@ adminOrdersRouter.patch(
       const status =
         String(
           req.body.status ?? '',
-        ).toLowerCase()
+        ).toLowerCase() as OrderStatus
 
       if (
         !allowedStatuses.includes(
-          status as OrderStatus,
+          status,
         )
       ) {
         return res.status(400).json({
@@ -165,7 +165,7 @@ adminOrdersRouter.patch(
         })
       }
 
-      const updatedOrder =
+      const result =
         await db.transaction(
           async (tx) => {
             const existingOrder =
@@ -176,10 +176,96 @@ adminOrdersRouter.patch(
                 .first()
 
             if (!existingOrder) {
-              return null
+              return {
+                type: 'not-found' as const,
+              }
             }
 
-            const update =
+            const currentStatus =
+              existingOrder.status as OrderStatus
+
+            /*
+             * No change required.
+             */
+            if (
+              currentStatus === status
+            ) {
+              return {
+                type: 'success' as const,
+                order:
+                  existingOrder,
+              }
+            }
+
+            /*
+             * Cancellation is terminal.
+             *
+             * This prevents changing a cancelled
+             * order back to processing/shipped,
+             * which could otherwise cause stock
+             * inconsistencies.
+             */
+            if (
+              currentStatus ===
+                'cancelled' &&
+              status !==
+                'cancelled'
+            ) {
+              return {
+                type: 'conflict' as const,
+
+                message:
+                  'A cancelled order cannot be reopened.',
+              }
+            }
+
+            /*
+             * If the order is being cancelled,
+             * restore its stock exactly once.
+             */
+            if (
+              status ===
+                'cancelled' &&
+              currentStatus !==
+                'cancelled'
+            ) {
+              const items =
+                await tx.orm.public.OrderItem
+                  .where({
+                    orderId: id,
+                  })
+                  .all()
+
+              for (const item of items) {
+                /*
+                 * productId may be null when the
+                 * original product was deleted.
+                 */
+                if (
+                  item.productId ===
+                  null
+                ) {
+                  continue
+                }
+
+                const restoreStock =
+                  tx.raw.sql`
+                    UPDATE "Product"
+                    SET
+                      "stockQuantity" = "stockQuantity" + ${item.quantity},
+                      "updatedAt" = ${new Date().toISOString()}
+                    WHERE "id" = ${item.productId}
+                  `
+                    .affectedCount()
+                    .build()
+
+                await tx.execute(
+                  restoreStock,
+                )
+              }
+            }
+
+            const updateStatus =
               tx.raw.sql`
                 UPDATE "Order"
                 SET "status" = ${status}
@@ -192,7 +278,7 @@ adminOrdersRouter.patch(
               affectedRows,
             } =
               await tx.execute(
-                update,
+                updateStatus,
               )
 
             if (
@@ -203,27 +289,53 @@ adminOrdersRouter.patch(
               )
             }
 
-            return tx.orm.public.Order
-              .where({
-                id,
-              })
-              .first()
+            const updatedOrder =
+              await tx.orm.public.Order
+                .where({
+                  id,
+                })
+                .first()
+
+            if (!updatedOrder) {
+              throw new Error(
+                'Updated order could not be loaded.',
+              )
+            }
+
+            return {
+              type: 'success' as const,
+              order:
+                updatedOrder,
+            }
           },
         )
 
-      if (!updatedOrder) {
+      if (
+        result.type ===
+        'not-found'
+      ) {
         return res.status(404).json({
           message:
             'Order not found.',
         })
       }
 
+      if (
+        result.type ===
+        'conflict'
+      ) {
+        return res.status(409).json({
+          message:
+            result.message,
+        })
+      }
+
       return res.json({
         id:
-          updatedOrder.id,
+          result.order.id,
 
         status:
-          updatedOrder.status,
+          result.order.status,
       })
     } catch (error) {
       console.error(

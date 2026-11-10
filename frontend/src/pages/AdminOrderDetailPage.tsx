@@ -96,6 +96,7 @@ export function AdminOrderDetailPage() {
           )
 
         setOrder(data)
+
         setSelectedStatus(
           data.status,
         )
@@ -125,6 +126,24 @@ export function AdminOrderDetailPage() {
       return
     }
 
+    if (
+      selectedStatus ===
+      'cancelled'
+    ) {
+      const confirmed =
+        window.confirm(
+          'Cancel this order? Purchased quantities will be returned to stock. This action cannot be reversed.',
+        )
+
+      if (!confirmed) {
+        setSelectedStatus(
+          order.status,
+        )
+
+        return
+      }
+    }
+
     try {
       setSavingStatus(true)
       setError(null)
@@ -142,14 +161,31 @@ export function AdminOrderDetailPage() {
           result.status,
       })
 
-      setStatusMessage(
-        'Order status updated.',
+      setSelectedStatus(
+        result.status,
       )
+
+      if (
+        result.status ===
+        'cancelled'
+      ) {
+        setStatusMessage(
+          'Order cancelled and stock restored.',
+        )
+      } else {
+        setStatusMessage(
+          'Order status updated.',
+        )
+      }
     } catch (error) {
       setError(
         error instanceof Error
           ? error.message
           : 'Could not update order status.',
+      )
+
+      setSelectedStatus(
+        order.status,
       )
     } finally {
       setSavingStatus(false)
@@ -251,9 +287,11 @@ export function AdminOrderDetailPage() {
                           )
                         }
                         disabled={
-                          savingStatus
+                          savingStatus ||
+                          order.status ===
+                            'cancelled'
                         }
-                        className="min-w-0 flex-1 border border-[#cfc8bc] bg-white px-3 py-2 text-sm outline-none focus:border-[#1c1c18]"
+                        className="min-w-0 flex-1 border border-[#cfc8bc] bg-white px-3 py-2 text-sm outline-none focus:border-[#1c1c18] disabled:cursor-not-allowed disabled:bg-[#f1ede5] disabled:text-[#777168]"
                       >
                         {statuses.map(
                           (
@@ -282,6 +320,8 @@ export function AdminOrderDetailPage() {
                         }
                         disabled={
                           savingStatus ||
+                          order.status ===
+                            'cancelled' ||
                           selectedStatus ===
                             order.status
                         }
@@ -292,6 +332,13 @@ export function AdminOrderDetailPage() {
                           : 'Save'}
                       </button>
                     </div>
+
+                    {order.status ===
+                      'cancelled' && (
+                      <p className="mt-3 text-sm text-[#8c3b24]">
+                        This order is cancelled and cannot be reopened.
+                      </p>
+                    )}
 
                     {statusMessage && (
                       <p className="mt-3 text-sm text-[#4f6a3f]">
