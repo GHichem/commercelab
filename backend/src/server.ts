@@ -16,8 +16,16 @@ import {
 } from './routes/admin-images.js'
 
 import {
+  adminOrdersRouter,
+} from './routes/admin-orders.js'
+
+import {
   adminProductsRouter,
 } from './routes/admin-products.js'
+
+import {
+  ordersRouter,
+} from './routes/orders.js'
 
 import {
   productsRouter,
@@ -42,9 +50,7 @@ app.use(
   }),
 )
 
-app.use(
-  express.json(),
-)
+app.use(express.json())
 
 app.get(
   '/health',
@@ -57,22 +63,33 @@ app.get(
   },
 )
 
-// Public shop API
+/*
+ * Public storefront
+ */
 app.use(
   '/products',
   productsRouter,
 )
 
-// Login/logout/session check.
-// This MUST come before
-// requireAdmin.
+/*
+ * Public checkout
+ */
+app.use(
+  '/orders',
+  ordersRouter,
+)
+
+/*
+ * Admin authentication
+ */
 app.use(
   '/admin/auth',
   adminAuthRouter,
 )
 
-// Everything after this point
-// under /admin requires login.
+/*
+ * Protect everything below /admin
+ */
 app.use(
   '/admin',
   requireAdmin,
@@ -86,6 +103,11 @@ app.use(
 app.use(
   '/admin',
   adminProductsRouter,
+)
+
+app.use(
+  '/admin',
+  adminOrdersRouter,
 )
 
 app.listen(

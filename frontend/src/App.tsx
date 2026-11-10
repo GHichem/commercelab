@@ -5,14 +5,53 @@ import {
   Routes,
 } from 'react-router-dom'
 
-import { ProtectedAdminRoute } from './components/ProtectedAdminRoute'
-import { CartProvider } from './context/CartContext'
-import { AdminLoginPage } from './pages/AdminLoginPage'
-import { AdminProductFormPage } from './pages/AdminProductFormPage'
-import { AdminProductsPage } from './pages/AdminProductsPage'
-import { CartPage } from './pages/CartPage'
-import { ProductDetailPage } from './pages/ProductDetailPage'
-import { StorefrontPage } from './pages/StorefrontPage'
+import {
+  ProtectedAdminRoute,
+} from './components/ProtectedAdminRoute'
+
+import {
+  CartProvider,
+} from './context/CartContext'
+
+import {
+  AdminLoginPage,
+} from './pages/AdminLoginPage'
+
+import {
+  AdminOrderDetailPage,
+} from './pages/AdminOrderDetailPage'
+
+import {
+  AdminOrdersPage,
+} from './pages/AdminOrdersPage'
+
+import {
+  AdminProductFormPage,
+} from './pages/AdminProductFormPage'
+
+import {
+  AdminProductsPage,
+} from './pages/AdminProductsPage'
+
+import {
+  CartPage,
+} from './pages/CartPage'
+
+import {
+  CheckoutPage,
+} from './pages/CheckoutPage'
+
+import {
+  CheckoutSuccessPage,
+} from './pages/CheckoutSuccessPage'
+
+import {
+  ProductDetailPage,
+} from './pages/ProductDetailPage'
+
+import {
+  StorefrontPage,
+} from './pages/StorefrontPage'
 
 function App() {
   return (
@@ -21,26 +60,50 @@ function App() {
         <Routes>
           <Route
             path="/"
-            element={<StorefrontPage />}
+            element={
+              <StorefrontPage />
+            }
           />
 
           <Route
             path="/products/:slug"
-            element={<ProductDetailPage />}
+            element={
+              <ProductDetailPage />
+            }
           />
 
           <Route
             path="/cart"
-            element={<CartPage />}
+            element={
+              <CartPage />
+            }
+          />
+
+          <Route
+            path="/checkout"
+            element={
+              <CheckoutPage />
+            }
+          />
+
+          <Route
+            path="/checkout/success"
+            element={
+              <CheckoutSuccessPage />
+            }
           />
 
           <Route
             path="/admin/login"
-            element={<AdminLoginPage />}
+            element={
+              <AdminLoginPage />
+            }
           />
 
           <Route
-            element={<ProtectedAdminRoute />}
+            element={
+              <ProtectedAdminRoute />
+            }
           >
             <Route
               path="/admin"
@@ -54,17 +117,37 @@ function App() {
 
             <Route
               path="/admin/products"
-              element={<AdminProductsPage />}
+              element={
+                <AdminProductsPage />
+              }
             />
 
             <Route
               path="/admin/products/new"
-              element={<AdminProductFormPage />}
+              element={
+                <AdminProductFormPage />
+              }
             />
 
             <Route
               path="/admin/products/:id/edit"
-              element={<AdminProductFormPage />}
+              element={
+                <AdminProductFormPage />
+              }
+            />
+
+            <Route
+              path="/admin/orders"
+              element={
+                <AdminOrdersPage />
+              }
+            />
+
+            <Route
+              path="/admin/orders/:id"
+              element={
+                <AdminOrderDetailPage />
+              }
             />
           </Route>
 
