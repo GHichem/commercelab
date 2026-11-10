@@ -9,15 +9,22 @@ adminOrdersRouter.get(
   async (_req, res) => {
     try {
       const orders =
-        await db.orm.public.Order
-          .orderBy({
-            createdAt: 'desc',
-          })
-          .all()
+        await db.orm.public.Order.all()
+
+      const sortedOrders =
+        [...orders].sort(
+          (a, b) =>
+            new Date(
+              b.createdAt,
+            ).getTime() -
+            new Date(
+              a.createdAt,
+            ).getTime(),
+        )
 
       const result = []
 
-      for (const order of orders) {
+      for (const order of sortedOrders) {
         const items =
           await db.orm.public.OrderItem
             .where({
@@ -27,13 +34,9 @@ adminOrdersRouter.get(
 
         result.push({
           ...order,
-
           itemCount:
             items.reduce(
-              (
-                total,
-                item,
-              ) =>
+              (total, item) =>
                 total +
                 item.quantity,
               0,
@@ -92,14 +95,17 @@ adminOrdersRouter.get(
           .where({
             orderId: id,
           })
-          .orderBy({
-            id: 'asc',
-          })
           .all()
+
+      const sortedItems =
+        [...items].sort(
+          (a, b) =>
+            a.id - b.id,
+        )
 
       return res.json({
         ...order,
-        items,
+        items: sortedItems,
       })
     } catch (error) {
       console.error(
