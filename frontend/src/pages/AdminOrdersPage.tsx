@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useState,
 } from 'react'
 
@@ -10,7 +11,24 @@ import {
 import {
   getAdminOrders,
   type AdminOrder,
+  type OrderStatus,
 } from '../api/admin-orders'
+
+import {
+  OrderStatusBadge,
+} from '../components/OrderStatusBadge'
+
+type StatusFilter =
+  | 'all'
+  | OrderStatus
+
+const filters: StatusFilter[] = [
+  'all',
+  'confirmed',
+  'processing',
+  'shipped',
+  'cancelled',
+]
 
 export function AdminOrdersPage() {
   const [
@@ -31,6 +49,13 @@ export function AdminOrdersPage() {
   ] = useState<
     string | null
   >(null)
+
+  const [
+    statusFilter,
+    setStatusFilter,
+  ] = useState<StatusFilter>(
+    'all',
+  )
 
   useEffect(() => {
     async function loadOrders() {
@@ -55,6 +80,25 @@ export function AdminOrdersPage() {
 
     loadOrders()
   }, [])
+
+  const filteredOrders =
+    useMemo(() => {
+      if (
+        statusFilter ===
+        'all'
+      ) {
+        return orders
+      }
+
+      return orders.filter(
+        (order) =>
+          order.status ===
+          statusFilter,
+      )
+    }, [
+      orders,
+      statusFilter,
+    ])
 
   return (
     <div className="min-h-screen bg-[#f7f4ee] text-[#1c1c18]">
@@ -89,44 +133,86 @@ export function AdminOrdersPage() {
       </header>
 
       <main className="mx-auto max-w-7xl px-6 py-10">
-        <div className="mb-8">
+        <div className="flex flex-col gap-6 border-b border-[#d8d2c8] pb-7 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="font-editorial text-4xl">
+              Customer orders
+            </h2>
+
+            <p className="mt-2 text-sm text-[#69655e]">
+              Review purchases, shipping details and order progress.
+            </p>
+          </div>
+
           <p className="text-sm text-[#69655e]">
-            Review customer orders and purchased items.
+            {filteredOrders.length}{' '}
+            {filteredOrders.length === 1
+              ? 'order'
+              : 'orders'}
           </p>
         </div>
 
+        <div className="mt-6 flex flex-wrap gap-2">
+          {filters.map(
+            (filter) => {
+              const active =
+                statusFilter ===
+                filter
+
+              return (
+                <button
+                  key={filter}
+                  type="button"
+                  onClick={() =>
+                    setStatusFilter(
+                      filter,
+                    )
+                  }
+                  className={`border px-4 py-2 text-xs font-semibold uppercase tracking-[0.1em] transition ${
+                    active
+                      ? 'border-[#1c1c18] bg-[#1c1c18] text-white'
+                      : 'border-[#cfc8bc] bg-[#fbf9f5] text-[#69655e] hover:border-[#1c1c18]'
+                  }`}
+                >
+                  {filter}
+                </button>
+              )
+            },
+          )}
+        </div>
+
         {loading && (
-          <p className="text-[#69655e]">
+          <p className="mt-10 text-[#69655e]">
             Loading orders...
           </p>
         )}
 
         {error && (
-          <div className="border border-[#b46a58] bg-[#f7ebe7] p-4 text-sm text-[#8c3b24]">
+          <div className="mt-10 border border-[#b46a58] bg-[#f7ebe7] p-4 text-sm text-[#8c3b24]">
             {error}
           </div>
         )}
 
         {!loading &&
           !error &&
-          orders.length ===
+          filteredOrders.length ===
             0 && (
-            <div className="border border-[#d8d2c8] bg-[#fbf9f5] p-10 text-center">
+            <div className="mt-10 border border-[#d8d2c8] bg-[#fbf9f5] p-10 text-center">
               <h2 className="font-editorial text-3xl">
-                No orders yet.
+                No orders found.
               </h2>
 
               <p className="mt-2 text-sm text-[#69655e]">
-                New checkout orders will appear here.
+                There are no orders with this status.
               </p>
             </div>
           )}
 
         {!loading &&
           !error &&
-          orders.length >
+          filteredOrders.length >
             0 && (
-            <div className="overflow-x-auto border border-[#d8d2c8] bg-[#fbf9f5]">
+            <div className="mt-8 overflow-x-auto border border-[#d8d2c8] bg-[#fbf9f5]">
               <table className="min-w-full text-left text-sm">
                 <thead className="border-b border-[#d8d2c8] bg-[#f1ede5]">
                   <tr>
@@ -159,7 +245,7 @@ export function AdminOrdersPage() {
                 </thead>
 
                 <tbody>
-                  {orders.map(
+                  {filteredOrders.map(
                     (order) => (
                       <tr
                         key={
@@ -174,22 +260,20 @@ export function AdminOrdersPage() {
                         </td>
 
                         <td className="px-5 py-4">
-                          <div>
-                            <p>
-                              {
-                                order.firstName
-                              }{' '}
-                              {
-                                order.lastName
-                              }
-                            </p>
+                          <p>
+                            {
+                              order.firstName
+                            }{' '}
+                            {
+                              order.lastName
+                            }
+                          </p>
 
-                            <p className="mt-1 text-xs text-[#777168]">
-                              {
-                                order.email
-                              }
-                            </p>
-                          </div>
+                          <p className="mt-1 text-xs text-[#777168]">
+                            {
+                              order.email
+                            }
+                          </p>
                         </td>
 
                         <td className="px-5 py-4">
@@ -209,11 +293,11 @@ export function AdminOrdersPage() {
                         </td>
 
                         <td className="px-5 py-4">
-                          <span className="border border-[#cfc8bc] bg-white px-3 py-1 text-xs uppercase tracking-[0.1em]">
-                            {
+                          <OrderStatusBadge
+                            status={
                               order.status
                             }
-                          </span>
+                          />
                         </td>
 
                         <td className="px-5 py-4 text-[#69655e]">
