@@ -4,6 +4,7 @@ import express from 'express';
 import { requireAdmin, } from './auth/admin-auth.js';
 import { adminAuthRouter, } from './routes/admin-auth.js';
 import { adminImagesRouter, } from './routes/admin-images.js';
+import { adminOrdersRouter, } from './routes/admin-orders.js';
 import { adminProductsRouter, } from './routes/admin-products.js';
 import { ordersRouter, } from './routes/orders.js';
 import { productsRouter, } from './routes/products.js';
@@ -24,24 +25,24 @@ app.get('/health', (_req, res) => {
     });
 });
 /*
- * Public storefront API
+ * Public storefront
  */
 app.use('/products', productsRouter);
 /*
- * Public checkout API
+ * Public checkout
  */
 app.use('/orders', ordersRouter);
 /*
- * Admin login/session
+ * Admin authentication
  */
 app.use('/admin/auth', adminAuthRouter);
 /*
- * Protect every remaining
- * /admin endpoint.
+ * Protect all remaining /admin routes
  */
 app.use('/admin', requireAdmin);
 app.use('/admin', adminImagesRouter);
 app.use('/admin', adminProductsRouter);
+app.use('/admin', adminOrdersRouter);
 app.listen(PORT, () => {
     console.log(`CommerceLab API running on http://localhost:${PORT}`);
 });
