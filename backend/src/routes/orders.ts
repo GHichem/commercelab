@@ -17,6 +17,12 @@ type CheckoutItem = {
 ordersRouter.post(
   '/',
   async (req, res) => {
+    const idempotencyKey =
+      typeof req.body.idempotencyKey ===
+      'string'
+        ? req.body.idempotencyKey.trim()
+        : ''
+
     try {
       const {
         email,
@@ -28,6 +34,13 @@ ordersRouter.post(
         country,
         items,
       } = req.body
+
+      if (!idempotencyKey) {
+        return res.status(400).json({
+          message:
+            'Idempotency key is required.',
+        })
+      }
 
       if (
         !email ||
@@ -77,6 +90,34 @@ ordersRouter.post(
         })
       }
 
+      /*
+       * If this checkout request already
+       * created an order, return it.
+       *
+       * No stock reduction happens again.
+       */
+      const existingOrder =
+        await db.orm.public.Order
+          .where({
+            idempotencyKey,
+          })
+          .first()
+
+      if (existingOrder) {
+        return res.status(200).json({
+          orderNumber:
+            existingOrder.orderNumber,
+
+          orderId:
+            existingOrder.id,
+
+          totalCents:
+            existingOrder.totalCents,
+
+          replayed: true,
+        })
+      }
+
       const orderNumber =
         createOrderNumber()
 
@@ -102,6 +143,7 @@ ordersRouter.post(
                   .where({
                     id:
                       item.productId,
+
                     isActive:
                       true,
                   })
@@ -113,12 +155,6 @@ ordersRouter.post(
                 )
               }
 
-              /*
-               * Reduce stock atomically.
-               *
-               * The WHERE condition makes sure
-               * stock can never become negative.
-               */
               const stockUpdate =
                 tx.raw.sql`
                   UPDATE "Product"
@@ -177,6 +213,8 @@ ordersRouter.post(
             const createdOrder =
               await tx.orm.public.Order.create({
                 orderNumber,
+
+                idempotencyKey,
 
                 email:
                   String(email)
@@ -248,12 +286,10 @@ ordersRouter.post(
         )
 
       /*
-       * Email happens AFTER the database
-       * transaction.
+       * Email stays outside the transaction.
        *
-       * Important:
-       * if email sending fails, we do NOT
-       * delete or roll back the order.
+       * A failed email must never undo
+       * a successfully created order.
        */
       try {
         const emailItems =
@@ -310,8 +346,55 @@ ordersRouter.post(
 
         totalCents:
           order.totalCents,
+
+        replayed: false,
       })
     } catch (error) {
+      /*
+       * Important race-condition protection:
+       *
+       * Two identical requests could arrive
+       * at almost exactly the same time.
+       *
+       * The unique DB constraint allows only
+       * one idempotencyKey to be inserted.
+       *
+       * If another request already won,
+       * return that existing order.
+       */
+      if (idempotencyKey) {
+        try {
+          const existingOrder =
+            await db.orm.public.Order
+              .where({
+                idempotencyKey,
+              })
+              .first()
+
+          if (existingOrder) {
+            return res.status(200).json({
+              orderNumber:
+                existingOrder.orderNumber,
+
+              orderId:
+                existingOrder.id,
+
+              totalCents:
+                existingOrder.totalCents,
+
+              replayed: true,
+            })
+          }
+        } catch (
+          lookupError
+        ) {
+          console.error(
+            'Failed to check existing idempotent order:',
+            lookupError,
+          )
+        }
+      }
+
       console.error(
         'Failed to create order:',
         error,

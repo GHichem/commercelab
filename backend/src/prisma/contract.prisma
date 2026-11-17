@@ -1,18 +1,18 @@
 // use prisma-8
 
 model Product {
-  id            Int      @id @default(autoincrement())
+  id            Int @id @default(autoincrement())
   name          String
-  slug          String   @unique
+  slug          String @unique
   description   String?
   priceCents    Int
-  stockQuantity Int      @default(0)
+  stockQuantity Int @default(0)
 
   // Temporary legacy field.
   imageUrl      String?
 
-  isActive      Boolean  @default(true)
-  displayOrder  Int      @default(0)
+  isActive      Boolean @default(true)
+  displayOrder  Int @default(0)
 
   images        ProductImage[]
   orderItems    OrderItem[]
@@ -22,52 +22,56 @@ model Product {
 }
 
 model ProductImage {
-  id          Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  productId   Int
-  product     Product  @relation(fields: [productId], references: [id])
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
 
   storagePath String
   altText     String?
-  position    Int      @default(0)
+  position    Int @default(0)
 
-  createdAt   DateTime(as: string) @onCreate(now())
+  createdAt DateTime(as: string) @onCreate(now())
 }
 
 model Order {
-  id            Int         @id @default(autoincrement())
-  orderNumber   String      @unique
+  id          Int    @id @default(autoincrement())
+  orderNumber String @unique
 
-  email         String
-  firstName     String
-  lastName      String
+  // Old orders may be null.
+  // Every new checkout will provide this.
+  idempotencyKey String? @unique
 
-  address       String
-  city          String
-  postalCode    String
-  country       String
+  email     String
+  firstName String
+  lastName  String
 
-  status        String      @default("confirmed")
+  address    String
+  city       String
+  postalCode String
+  country    String
+
+  status String @default("confirmed")
 
   subtotalCents Int
   totalCents    Int
 
-  items         OrderItem[]
+  items OrderItem[]
 
-  createdAt     DateTime(as: string) @onCreate(now())
+  createdAt DateTime(as: string) @onCreate(now())
 }
 
 model OrderItem {
-  id             Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  orderId        Int
-  order          Order    @relation(fields: [orderId], references: [id])
+  orderId Int
+  order   Order @relation(fields: [orderId], references: [id])
 
-  productId      Int?
-  product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productId Int?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
-  productName    String
-  productSlug    String
+  productName String
+  productSlug String
 
   unitPriceCents Int
   quantity       Int

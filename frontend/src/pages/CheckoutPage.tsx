@@ -1,20 +1,31 @@
 import {
   type FormEvent,
   useMemo,
+  useRef,
   useState,
 } from 'react'
+
 import {
   Link,
   Navigate,
   useNavigate,
 } from 'react-router-dom'
 
-import { createOrder } from '../api/orders'
-import { Header } from '../components/Header'
-import { useCart } from '../context/CartContext'
+import {
+  createOrder,
+} from '../api/orders'
+
+import {
+  Header,
+} from '../components/Header'
+
+import {
+  useCart,
+} from '../context/CartContext'
 
 export function CheckoutPage() {
-  const navigate = useNavigate()
+  const navigate =
+    useNavigate()
 
   const {
     items,
@@ -22,23 +33,83 @@ export function CheckoutPage() {
     clearCart,
   } = useCart()
 
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [email, setEmail] = useState('')
-  const [address, setAddress] = useState('')
-  const [city, setCity] = useState('')
-  const [postalCode, setPostalCode] = useState('')
-  const [country, setCountry] = useState('Germany')
+  /*
+   * Important:
+   *
+   * This UUID is generated once for this
+   * checkout page instance.
+   *
+   * If the request is retried, the same
+   * UUID is sent again.
+   */
+  const idempotencyKey =
+    useRef(
+      crypto.randomUUID(),
+    )
 
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [
+    firstName,
+    setFirstName,
+  ] = useState('')
 
-  const subtotal = useMemo(
-    () => (subtotalCents / 100).toFixed(2),
-    [subtotalCents],
+  const [
+    lastName,
+    setLastName,
+  ] = useState('')
+
+  const [
+    email,
+    setEmail,
+  ] = useState('')
+
+  const [
+    address,
+    setAddress,
+  ] = useState('')
+
+  const [
+    city,
+    setCity,
+  ] = useState('')
+
+  const [
+    postalCode,
+    setPostalCode,
+  ] = useState('')
+
+  const [
+    country,
+    setCountry,
+  ] = useState(
+    'Germany',
   )
 
-  if (items.length === 0) {
+  const [
+    isSubmitting,
+    setIsSubmitting,
+  ] = useState(false)
+
+  const [
+    error,
+    setError,
+  ] = useState<
+    string | null
+  >(null)
+
+  const subtotal =
+    useMemo(
+      () =>
+        (
+          subtotalCents /
+          100
+        ).toFixed(2),
+
+      [subtotalCents],
+    )
+
+  if (
+    items.length === 0
+  ) {
     return (
       <Navigate
         to="/cart"
@@ -48,9 +119,18 @@ export function CheckoutPage() {
   }
 
   async function handleSubmit(
-    event: FormEvent<HTMLFormElement>,
+    event:
+      FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault()
+
+    /*
+     * Prevent normal double-clicks in
+     * the UI immediately.
+     */
+    if (isSubmitting) {
+      return
+    }
 
     setError(null)
 
@@ -63,32 +143,50 @@ export function CheckoutPage() {
       !postalCode.trim() ||
       !country.trim()
     ) {
-      setError('Please complete all required fields.')
+      setError(
+        'Please complete all required fields.',
+      )
+
       return
     }
 
-    if (!email.includes('@')) {
-      setError('Please enter a valid email address.')
+    if (
+      !email.includes('@')
+    ) {
+      setError(
+        'Please enter a valid email address.',
+      )
+
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      const order = await createOrder({
-        email,
-        firstName,
-        lastName,
-        address,
-        city,
-        postalCode,
-        country,
+      const order =
+        await createOrder({
+          idempotencyKey:
+            idempotencyKey.current,
 
-        items: items.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-        })),
-      })
+          email,
+          firstName,
+          lastName,
+          address,
+          city,
+          postalCode,
+          country,
+
+          items:
+            items.map(
+              (item) => ({
+                productId:
+                  item.productId,
+
+                quantity:
+                  item.quantity,
+              }),
+            ),
+        })
 
       clearCart()
 
@@ -138,7 +236,9 @@ export function CheckoutPage() {
         </header>
 
         <form
-          onSubmit={handleSubmit}
+          onSubmit={
+            handleSubmit
+          }
           className="mt-10 grid gap-12 lg:grid-cols-[1fr_360px]"
         >
           <section>
@@ -157,11 +257,21 @@ export function CheckoutPage() {
                 <Field label="Email">
                   <input
                     type="email"
-                    value={email}
-                    onChange={(event) =>
-                      setEmail(event.target.value)
+                    value={
+                      email
                     }
-                    className={inputClass}
+                    onChange={(
+                      event,
+                    ) =>
+                      setEmail(
+                        event
+                          .target
+                          .value,
+                      )
+                    }
+                    className={
+                      inputClass
+                    }
                     placeholder="you@example.com"
                   />
                 </Field>
@@ -176,21 +286,41 @@ export function CheckoutPage() {
               <div className="mt-6 grid gap-5 sm:grid-cols-2">
                 <Field label="First name">
                   <input
-                    value={firstName}
-                    onChange={(event) =>
-                      setFirstName(event.target.value)
+                    value={
+                      firstName
                     }
-                    className={inputClass}
+                    onChange={(
+                      event,
+                    ) =>
+                      setFirstName(
+                        event
+                          .target
+                          .value,
+                      )
+                    }
+                    className={
+                      inputClass
+                    }
                   />
                 </Field>
 
                 <Field label="Last name">
                   <input
-                    value={lastName}
-                    onChange={(event) =>
-                      setLastName(event.target.value)
+                    value={
+                      lastName
                     }
-                    className={inputClass}
+                    onChange={(
+                      event,
+                    ) =>
+                      setLastName(
+                        event
+                          .target
+                          .value,
+                      )
+                    }
+                    className={
+                      inputClass
+                    }
                   />
                 </Field>
               </div>
@@ -198,11 +328,21 @@ export function CheckoutPage() {
               <div className="mt-5">
                 <Field label="Address">
                   <input
-                    value={address}
-                    onChange={(event) =>
-                      setAddress(event.target.value)
+                    value={
+                      address
                     }
-                    className={inputClass}
+                    onChange={(
+                      event,
+                    ) =>
+                      setAddress(
+                        event
+                          .target
+                          .value,
+                      )
+                    }
+                    className={
+                      inputClass
+                    }
                     placeholder="Street and house number"
                   />
                 </Field>
@@ -211,21 +351,41 @@ export function CheckoutPage() {
               <div className="mt-5 grid gap-5 sm:grid-cols-2">
                 <Field label="Postal code">
                   <input
-                    value={postalCode}
-                    onChange={(event) =>
-                      setPostalCode(event.target.value)
+                    value={
+                      postalCode
                     }
-                    className={inputClass}
+                    onChange={(
+                      event,
+                    ) =>
+                      setPostalCode(
+                        event
+                          .target
+                          .value,
+                      )
+                    }
+                    className={
+                      inputClass
+                    }
                   />
                 </Field>
 
                 <Field label="City">
                   <input
-                    value={city}
-                    onChange={(event) =>
-                      setCity(event.target.value)
+                    value={
+                      city
                     }
-                    className={inputClass}
+                    onChange={(
+                      event,
+                    ) =>
+                      setCity(
+                        event
+                          .target
+                          .value,
+                      )
+                    }
+                    className={
+                      inputClass
+                    }
                   />
                 </Field>
               </div>
@@ -233,17 +393,41 @@ export function CheckoutPage() {
               <div className="mt-5">
                 <Field label="Country">
                   <select
-                    value={country}
-                    onChange={(event) =>
-                      setCountry(event.target.value)
+                    value={
+                      country
                     }
-                    className={inputClass}
+                    onChange={(
+                      event,
+                    ) =>
+                      setCountry(
+                        event
+                          .target
+                          .value,
+                      )
+                    }
+                    className={
+                      inputClass
+                    }
                   >
-                    <option>Germany</option>
-                    <option>Austria</option>
-                    <option>Switzerland</option>
-                    <option>Netherlands</option>
-                    <option>Belgium</option>
+                    <option>
+                      Germany
+                    </option>
+
+                    <option>
+                      Austria
+                    </option>
+
+                    <option>
+                      Switzerland
+                    </option>
+
+                    <option>
+                      Netherlands
+                    </option>
+
+                    <option>
+                      Belgium
+                    </option>
                   </select>
                 </Field>
               </div>
@@ -267,55 +451,74 @@ export function CheckoutPage() {
               </p>
 
               <div className="mt-6 space-y-5">
-                {items.map((item) => (
-                  <div
-                    key={item.productId}
-                    className="flex gap-4"
-                  >
-                    <div className="h-16 w-16 shrink-0 overflow-hidden border border-[#d8d2c8] bg-white">
-                      {item.imageUrl ? (
-                        <img
-                          src={item.imageUrl}
-                          alt={item.name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-[10px] text-[#8d887f]">
-                          No image
-                        </div>
-                      )}
+                {items.map(
+                  (item) => (
+                    <div
+                      key={
+                        item.productId
+                      }
+                      className="flex gap-4"
+                    >
+                      <div className="h-16 w-16 shrink-0 overflow-hidden border border-[#d8d2c8] bg-white">
+                        {item.imageUrl ? (
+                          <img
+                            src={
+                              item.imageUrl
+                            }
+                            alt={
+                              item.name
+                            }
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-[10px] text-[#8d887f]">
+                            No image
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium">
+                          {item.name}
+                        </p>
+
+                        <p className="mt-1 text-xs text-[#777168]">
+                          Qty{' '}
+                          {item.quantity}
+                        </p>
+                      </div>
+
+                      <span className="text-sm font-medium">
+                        €
+                        {(
+                          item.priceCents *
+                          item.quantity /
+                          100
+                        ).toFixed(2)}
+                      </span>
                     </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">
-                        {item.name}
-                      </p>
-
-                      <p className="mt-1 text-xs text-[#777168]">
-                        Qty {item.quantity}
-                      </p>
-                    </div>
-
-                    <span className="text-sm font-medium">
-                      €
-                      {(
-                        (item.priceCents *
-                          item.quantity) /
-                        100
-                      ).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
+                  ),
+                )}
               </div>
 
               <div className="mt-6 flex items-center justify-between border-t border-[#d8d2c8] pt-5">
-                <span>Subtotal</span>
-                <strong>€{subtotal}</strong>
+                <span>
+                  Subtotal
+                </span>
+
+                <strong>
+                  €{subtotal}
+                </strong>
               </div>
 
               <div className="mt-3 flex items-center justify-between text-sm text-[#69655e]">
-                <span>Shipping</span>
-                <span>Free</span>
+                <span>
+                  Shipping
+                </span>
+
+                <span>
+                  Free
+                </span>
               </div>
 
               <div className="mt-5 flex items-center justify-between border-t border-[#d8d2c8] pt-5 text-lg">
@@ -330,7 +533,9 @@ export function CheckoutPage() {
 
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={
+                  isSubmitting
+                }
                 className="mt-6 w-full border border-[#1c1c18] bg-[#1c1c18] px-5 py-4 text-sm font-medium text-white transition hover:bg-[#8c3b24] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting
@@ -351,7 +556,8 @@ export function CheckoutPage() {
 
 type FieldProps = {
   label: string
-  children: React.ReactNode
+  children:
+    React.ReactNode
 }
 
 function Field({

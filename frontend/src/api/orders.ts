@@ -1,4 +1,6 @@
 export type CreateOrderInput = {
+  idempotencyKey: string
+
   email: string
   firstName: string
   lastName: string
@@ -17,6 +19,7 @@ export type CreateOrderResponse = {
   orderNumber: string
   orderId: number
   totalCents: number
+  replayed: boolean
 }
 
 const apiUrl =
@@ -25,21 +28,31 @@ const apiUrl =
 export async function createOrder(
   input: CreateOrderInput,
 ): Promise<CreateOrderResponse> {
-  const response = await fetch(
-    `${apiUrl}/orders`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+  const response =
+    await fetch(
+      `${apiUrl}/orders`,
+      {
+        method: 'POST',
+
+        headers: {
+          'Content-Type':
+            'application/json',
+        },
+
+        body:
+          JSON.stringify(
+            input,
+          ),
       },
-      body: JSON.stringify(input),
-    },
-  )
+    )
 
   if (!response.ok) {
-    const data = await response
-      .json()
-      .catch(() => null)
+    const data =
+      await response
+        .json()
+        .catch(
+          () => null,
+        )
 
     throw new Error(
       data?.message ??

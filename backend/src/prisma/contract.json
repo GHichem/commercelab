@@ -76,6 +76,13 @@
                   "kind": "scalar"
                 }
               },
+              "idempotencyKey": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "lastName": {
                 "nullable": false,
                 "type": {
@@ -158,6 +165,9 @@
                 },
                 "id": {
                   "column": "id"
+                },
+                "idempotencyKey": {
+                  "column": "idempotencyKey"
                 },
                 "lastName": {
                   "column": "lastName"
@@ -596,6 +606,11 @@
                   },
                   "nullable": false
                 },
+                "idempotencyKey": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
                 "lastName": {
                   "codecId": "pg/text@1",
                   "dataType": "pg/text",
@@ -642,6 +657,11 @@
                 {
                   "columns": [
                     "orderNumber"
+                  ]
+                },
+                {
+                  "columns": [
+                    "idempotencyKey"
                   ]
                 }
               ]
@@ -933,7 +953,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "ed1ebf7bc94e00b55ecd36a233c5f5262ec50e192ce40c3ecf22b9a3b142e099"
+    "storageHash": "5436ddd9d73171a26cd167637c7fd584cbffc0a9618be61d1adfeaff8c1f9ac5"
   },
   "execution": {
     "executionHash": "a20b97461cbaeb227d0e79bf730d0e242d0c37f231b1003dc330ba0dd35d3bb8",
