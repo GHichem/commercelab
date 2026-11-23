@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./frontend/public/icon-192.png" alt="CommerceLab logo" width="96" />
+  <img src="./frontend/public/favicon.png" alt="CommerceLab logo" width="96" />
 </p>
 
 <h1 align="center">CommerceLab</h1>
